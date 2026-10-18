@@ -1,10 +1,10 @@
 #!/bin/sh
-# Stage the newest 86Box-Next build in ../Latest (next to the repository).
+# Stage the newest 86Box-Next build in Latest/ (repo root, git-ignored).
 # Latest holds one rig per guest OS ("Windows 98 SE", "MS-DOS", ...), each a
 # folder with its own 86box.cfg, nvr/, disk images and roms/: the exe goes
 # into every rig folder that has an 86box.cfg or an 86Box-Next.exe (folders
 # with neither are left alone).  A rig without roms/ gets the 86Box ROM set
-# and MegaPPBox's Megatouch ROMs; every rig gets whatever ../ROMS-EXTRA holds
+# and MegaPPBox's Megatouch ROMs; every rig gets whatever $NEXT_HOME/ROMS-EXTRA holds
 # (ROMs in neither set, e.g. the NVIDIA BIOSes) that its roms/ lacks.
 #
 # The rigs are where the machines being tested live, so this only ever
@@ -27,8 +27,9 @@ if [ "$1" = "--update-roms" ]; then
     shift
 fi
 BUILD=${1:-build-static}
-OUT=../Latest
-EXTRA=../ROMS-EXTRA
+NEXT_HOME=${NEXT_HOME:-../86Box-Next}  # ROMS-EXTRA and the release archive, outside the repo
+OUT=Latest  # the rigs: Latest/ in the repo root, git-ignored
+EXTRA=$NEXT_HOME/ROMS-EXTRA
 UCRT=/c/msys64/ucrt64
 EXE="$BUILD/src/86Box-Next.exe"
 export PATH="$UCRT/bin:/c/msys64/usr/bin:$PATH"
@@ -96,7 +97,7 @@ stage_rig() {
     fi
 
     # ROMs that are in neither set (the NVIDIA RIVA 128 / 128 ZX BIOSes in
-    # video/nvidia/nv3), kept outside the repository in ../ROMS-EXTRA with
+    # video/nvidia/nv3), kept outside the repository in $NEXT_HOME/ROMS-EXTRA with
     # the roms/ layout: missing files are added, existing ones are only
     # replaced when asked.
     if [ -d "$EXTRA" ]; then

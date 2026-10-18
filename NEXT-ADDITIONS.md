@@ -23,6 +23,7 @@ issues · 🧪 experimental / not tried in a guest · ⛔ not in this release (u
 | **BIOS vendor in Settings > Machine** | ✅ | Machines the generator cannot place show "Unknown"; rerun `tools/machine-bios-vendors.py` when upstream adds machines. |
 | **Debug command file** (`BOX86NEXT_DEBUG_CMD`: keys, typing, mouse, screenshots, breakpoints, memory peeks, device dumps, CD swap, reset) | ✅ | `type` assumes a US keyboard layout (other layouts need scancodes). `interp 1` is cleared by every CPU reset. `bp` works in the interpreter only. Alt+Enter injection does not toggle full screen. |
 | **Upstream CI disabled**, weekly `sync-upstream.yml` merge | ✅ | None known. |
+| **Old recompiler removed** (86Box-Next2: upstream retired it; the new recompiler is the only one, as in upstream) | 🟡 new in 3.0 | Releases up to 2.1.5.1 were built with the old recompiler (`NEW_DYNAREC=OFF`); guests verified there have not all been rechecked on the new one. The fork's old-recompiler x87 EMMS fix is gone: upstream's own fix covers it. |
 
 ## Devices
 
@@ -42,7 +43,6 @@ issues · 🧪 experimental / not tried in a guest · ⛔ not in this release (u
 | **Voice calls** (Rockwell `#` set and V.253, ADPCM, host handset/speaker/microphone) | ✅ | PC Card modems have no voice. |
 | **isp-server** (submodule: virtual ISP + telephone exchange, web status page and browser phone; Windows/Linux/macOS/Docker) | ✅ | The browser phone's microphone needs a secure context (localhost or HTTPS). MS-CHAPv1 + MPPE can't be checked against Linux's pppd (pppd's own bug). |
 | **Roland Sound Canvas MIDI out** (88emu, 24 boards, front panel; replaces MUNT and the CLAP device) | ✅ | Builds with it are GPLv3. Upstream changes to its CMake/`midi.h` blocks can conflict on sync. Needs the owner's ROM dumps. |
-| **x87 EMMS fix** (old dynarec) | ✅ new in 2.1.5 | After MMX code the FPU tags were left "valid"; WHQL's DCT reported "corrupted floating point state". Fixed for every card (765b2e726). |
 | **86Box Guest Tools** (Settings > Other peripherals; Tools > Install/Update 86Box Guest Tools: built-in CD/floppy; agents 86BOXGT.EXE for Windows 95/NT 4.0 and later, GTWIN.EXE for Windows 3.x; version 1.1.x): mouse integration without capture, keyboard follows the pointer between machine windows (without raising them), shared clipboard text, files through the clipboard and drag and drop both ways (host, guest, guest to guest) | 🟡 new in 2.1.5.1 | Files and drag and drop: Win32 agent only (Windows 95, 98 SE, NT 4.0, 2000 tested), not Windows 3.x. Up to 20000 entries / 2 GB per copy; files from a guest are copied to the host in the background as soon as the guest copies them, into `<data dir>/guest-tools/clipboard`. No DOS, Linux or OS/2 agents. A drag out of a guest waits at the drop for the files to arrive. |
 
 ## Video cards

@@ -85,3 +85,6 @@ CMakeLists.txt.user
 # code -- upstream's RC* above (rc.exe's temporary files) would otherwise hide
 # rcc/, rc4.* and rcp* from git wherever core.ignorecase is on (Windows).
 !/src/sound/emu88/**
+
+# 86Box-Next2: the owner's test rigs (tools/stage-rig.sh, tools/make-release.sh)
+/Latest/

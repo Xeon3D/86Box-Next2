@@ -2,11 +2,11 @@
 
 A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
 
-- `origin` is `Xeon3D/86Box-Next`; `upstream` is 86Box/86Box (fetch only, push disabled).
+- `origin` is `Xeon3D/86Box-Next2` (successor of `Xeon3D/86Box-Next`, which still has the old recompiler); `upstream` is 86Box/86Box (fetch only, push disabled).
 - `.github/workflows/sync-upstream.yml` merges upstream `master` into ours once a week (Mondays);
   conflicts are reported as an issue in this repo.
 - **Never open pull requests, issues or comments against 86Box/86Box** unless the owner
-  explicitly asks for that specific submission. All PRs target `Xeon3D/86Box-Next`.
+  explicitly asks for that specific submission. All PRs target `Xeon3D/86Box-Next2`.
 
 ## Fork additions
 - Elo TouchSystems SmartSet serial touchscreen (`src/device/mouse_elo_touchscreen.c`),
@@ -424,6 +424,10 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   OVTEST.EXE modes 1-7 and IRQTEST.COM (savage3d-tools in the notes folder). "dev" in the debug
   command file dumps the BCI parser, 3D, overlay and interrupt state; "dev bcilog 1|0" logs every BCI dword and MMIO register write; "dev texdump <TexAddr>
   <TexDescr> <file.bmp>" decodes a texture as the 3D engine reads it.
+- Dynamic recompiler: upstream removed the old recompiler ("R.I.P. Old recompiler", f50f8cdf7)
+  and so has this repo; `DYNAREC=ON` builds the only one (upstream's `src/codegen`, formerly
+  `codegen_new`). There is no `NEW_DYNAREC` option any more: old build trees configured with
+  `NEW_DYNAREC=OFF` must be reconfigured. Releases up to 2.1.5.1 (Xeon3D/86Box-Next) used the old one.
 - Upstream's CI workflows and Dependabot are disabled/removed in this repo; only
   `sync-upstream.yml` runs.
 - Build number in the title bar / About box: `.build-number` (git-ignored, repo root)
@@ -438,8 +442,10 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   and `gh release create` with the zip (the script prints both).
 
 ## Layout and the staged rig
-`F:\Claude\86Box-Next\86box` is this repository; `F:\Claude\86Box-Next\Latest` (outside
-it) holds the owner's test rigs, one folder per guest OS (`Windows 98 SE` -- the PCMCIA/USB
+`F:\Claude\86Box-Next2` is this repository (the old 86Box-Next clone, with the old recompiler,
+is `F:\Claude\86Box-Next\86box`); `F:\Claude\86Box-Next2\Latest` (`Latest/` in the repo root,
+git-ignored; ROMS-EXTRA and RELEASES-ARCHIVE stay in `F:\Claude\86Box-Next`, `$NEXT_HOME` in the
+scripts) holds the owner's test rigs, one folder per guest OS (`Windows 98 SE` -- the PCMCIA/USB
 machine; its Windows asks for a network login at boot, and runs ScanDisk at boot after
 an exit without a Windows shutdown: Enter for both -- `MS-DOS`, `OS2 Warp 3`, ...),
 each with the newest build. `tools/stage-rig.sh` replaces only the exe (plus DLLs for a

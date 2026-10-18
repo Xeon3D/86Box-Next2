@@ -37,7 +37,7 @@ env:
 
 jobs:
   sync:
-    if: github.repository == 'Xeon3D/86Box-Next'
+    if: github.repository == 'Xeon3D/86Box-Next2'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

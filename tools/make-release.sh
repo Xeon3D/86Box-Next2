@@ -6,10 +6,11 @@
 # 1. Builds build-static with NEXT_RELEASE=N: the title bar reads
 #    "86Box-Next 7.0 - Release N".
 # 2. Packages the stripped 86Box-Next.exe and isp-server.exe with COPYING as
-#    ../RELEASES-ARCHIVE/86Box-Next-Release-N-win64.zip -- the archive keeps
+#    $NEXT_HOME/RELEASES-ARCHIVE/86Box-Next-Release-N-win64.zip -- the archive keeps
 #    every release's zip; an existing one is never overwritten.
-# 3. Stages exactly those exes: 86Box-Next.exe into every rig in ../Latest
-#    (as tools/stage-rig.sh picks them), isp-server.exe into ../Latest.
+# 3. Stages exactly those exes: 86Box-Next.exe into every rig in Latest/
+#    (as tools/stage-rig.sh picks them), isp-server.exe into Latest/
+#    ($NEXT_HOME, for the archive, defaults to ../86Box-Next).
 #
 # Publishing stays a separate step (it is printed at the end): tag the
 # commit release-N, push the tag, gh release create with the zip.
@@ -19,9 +20,10 @@ case "$N" in
     "" | *[!0-9A-Za-z._-]*) echo "usage: tools/make-release.sh N" >&2; exit 1 ;;
 esac
 NAME=86Box-Next-Release-$N
-ARCHIVE=../RELEASES-ARCHIVE
+NEXT_HOME=${NEXT_HOME:-../86Box-Next}  # ROMS-EXTRA and the release archive, outside the repo
+ARCHIVE=$NEXT_HOME/RELEASES-ARCHIVE
 ZIP=$ARCHIVE/$NAME-win64.zip
-OUT=../Latest
+OUT=Latest  # the rigs: Latest/ in the repo root, git-ignored
 UCRT=/c/msys64/ucrt64
 
 [ -e "$ZIP" ] && { echo "$ZIP already exists" >&2; exit 1; }
@@ -63,6 +65,7 @@ for d in "$OUT"/*/; do
         echo "Staged Release $N in $d"
     fi
 done
+mkdir -p "$OUT"
 cp "$STAGE/$NAME/isp-server.exe" "$OUT/isp-server.exe"
 echo "Staged isp-server in $OUT"
 rm -rf "$STAGE"
@@ -70,4 +73,4 @@ rm -rf "$STAGE"
 echo
 echo "To publish:"
 echo "  git tag -a release-$N -m \"86Box-Next Release $N\" && git push origin release-$N"
-echo "  gh release create release-$N \"$ZIP\" -R Xeon3D/86Box-Next --title \"86Box-Next Release $N\" --notes-file <notes.md> --verify-tag"
+echo "  gh release create release-$N \"$ZIP\" -R Xeon3D/86Box-Next2 --title \"86Box-Next Release $N\" --notes-file <notes.md> --verify-tag"

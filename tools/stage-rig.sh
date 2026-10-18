@@ -73,13 +73,17 @@ stage_rig() {
     RIG=$1
     # The global ROM set ($ROMS, F:\Claude\Roms): the 86Box set plus ours
     # (NVIDIA, Megatouch, ...).  A rig without roms/ gets a copy; otherwise
-    # missing files are added, and existing ones replaced only when asked.
+    # missing files are added, and existing ones replaced only when asked
+    # (and only when they differ).  Only the file list is walked, so a rig
+    # that has everything costs no ROM reads.
     mkdir -p "$RIG/roms"
-    if [ "$UPDATE_ROMS" = 1 ]; then
-        (cd "$ROMS" && tar cf - --exclude=.git .) | (cd "$RIG/roms" && tar xf -)
-    else
-        (cd "$ROMS" && tar cf - --exclude=.git .) | (cd "$RIG/roms" && tar xf - --skip-old-files)
-    fi
+    (cd "$ROMS" && find . -name .git -prune -o -type f -print) | while IFS= read -r f; do
+        DST="$RIG/roms/$f"
+        if [ ! -e "$DST" ] || { [ "$UPDATE_ROMS" = 1 ] && ! cmp -s "$ROMS/$f" "$DST"; }; then
+            mkdir -p "${DST%/*}"
+            cp "$ROMS/$f" "$DST"
+        fi
+    done
 
     strip -o "$RIG/86Box-Next.exe" "$EXE"
     if ! ldd "$EXE" | grep -qi '/ucrt64/'; then

@@ -44,7 +44,8 @@ Q_IMPORT_PLUGIN(QICOPlugin)
 #    ifdef Q_OS_WINDOWS
 Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin)
 #        if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
-Q_IMPORT_PLUGIN(QModernWindowsStylePlugin) /* Qt 6.7 renamed the Vista style */
+/* Qt 6.7 renamed the windowsvista style plugin */
+Q_IMPORT_PLUGIN(QModernWindowsStylePlugin)
 #        else
 Q_IMPORT_PLUGIN(QWindowsVistaStylePlugin)
 #        endif
@@ -104,6 +105,7 @@ extern "C" {
 #include <86box/timer.h>
 #include <86box/nvr.h>
 #include <86box/guest_tools.h>
+#include <86box/automation.h>
 extern int  qt_nvr_save(void);
 #ifndef Q_OS_MACOS
 extern void exit_pause(void);
@@ -485,7 +487,9 @@ main_thread_fn()
         if (gdbstub_next_asap && (debt_ns < quantum_ns))
             debt_ns = quantum_ns;
 #endif
-        if (((debt_ns >= quantum_ns) || fast_forward) && !dopause) {
+        automation_poll();
+        const int automation = automation_run_state();
+        if (((debt_ns >= quantum_ns) || fast_forward || (automation == AUTOMATION_RUN)) && !dopause && (automation != AUTOMATION_HOLD)) {
             /*
              * Pace with one pc_run() per scheduler pass.
              * We intentionally avoid burst catch-up (multi-frame loop) because it can
@@ -495,6 +499,7 @@ main_thread_fn()
             uint64_t start_time = elapsed_timer.nsecsElapsed();
 #endif
             pc_run();
+            automation_quantum();
 
 #ifdef USE_INSTRUMENT
             if (instru_enabled) {
@@ -512,7 +517,9 @@ main_thread_fn()
                 frames     = 0;
             }
 
-            if (!fast_forward && debt_ns >= quantum_ns)
+            if (automation == AUTOMATION_RUN)
+                debt_ns = 0; /* unpaced automation steps must not cause catch-up later */
+            else if (!fast_forward && debt_ns >= quantum_ns)
                 debt_ns -= quantum_ns;
             else
                 debt_ns = 0;
@@ -528,6 +535,9 @@ main_thread_fn()
 
             if (dopause)
                 ack_pause();
+
+            /* Keep answering a GDB client while the machine isn't running. */
+            gdbstub_poll();
 
             plat_delay_ms(1);
         }
@@ -548,7 +558,7 @@ static std::thread *main_thread;
 
 QTimer discordupdate;
 
-#ifdef Q_OS_WINDOWS
+#ifdef USE_QDARKSTYLE
 WindowsDarkModeFilter *vmm_dark_mode_filter = nullptr;
 #endif
 
@@ -556,7 +566,9 @@ int
 main(int argc, char *argv[])
 {
 #ifdef Q_OS_WINDOWS
+#    ifdef USE_QDARKSTYLE
     bool wasDarkTheme = false;
+#    endif
     /* Check if Windows supports UTF-8 */
     if (GetACP() == CP_UTF8)
         acp_utf8 = 1;
@@ -589,11 +601,13 @@ main(int argc, char *argv[])
     setlocale(LC_NUMERIC, "C");
 
 #ifdef Q_OS_WINDOWS
-    Q_INIT_RESOURCE(darkstyle);
     if (QFile(QApplication::applicationDirPath() + "/opengl32.dll").exists()) {
         qputenv("QT_OPENGL_DLL", QFileInfo(QApplication::applicationDirPath() + "/opengl32.dll").absoluteFilePath().toUtf8());
     }
+#endif
 
+#ifdef USE_QDARKSTYLE
+    Q_INIT_RESOURCE(darkstyle);
     if (!util::isWindowsLightTheme()) {
         QFile f(":qdarkstyle/dark/darkstyle.qss");
 
@@ -635,7 +649,7 @@ main(int argc, char *argv[])
         return 0;
     }
 
-#ifdef Q_OS_WINDOWS
+#ifdef USE_QDARKSTYLE
     if (util::isWindowsLightTheme() && wasDarkTheme) {
         qApp->setStyleSheet("");
         QPalette palette(qApp->palette());
@@ -643,6 +657,9 @@ main(int argc, char *argv[])
         palette.setColor(QPalette::LinkVisited, Qt::magenta);
         qApp->setPalette(palette);
     }
+#elif defined(Q_OS_WINDOWS)
+    /* The configuration is loaded now, so apply the color scheme from it */
+    util::applyColorScheme();
 #endif
 
     if (!start_vmm)
@@ -684,7 +701,7 @@ main(int argc, char *argv[])
         // QApplication::setApplicationDisplayName("86Box VM Manager");
         // vmm.show();
         // vmm.exec();
-#ifdef Q_OS_WINDOWS
+#ifdef USE_QDARKSTYLE
         auto darkModeFilter = std::unique_ptr<WindowsDarkModeFilter>(new WindowsDarkModeFilter());
         if (darkModeFilter) {
             qApp->installNativeEventFilter(darkModeFilter.get());
@@ -694,7 +711,7 @@ main(int argc, char *argv[])
         QTimer::singleShot(0, [] {
 #endif
             const auto vmm_main_window = new VMManagerMainWindow();
-#ifdef Q_OS_WINDOWS
+#ifdef USE_QDARKSTYLE
             darkModeFilter.get()->setWindow(vmm_main_window);
             // HACK
             vmm_dark_mode_filter = darkModeFilter.get();
@@ -706,6 +723,18 @@ main(int argc, char *argv[])
     }
 
     pc_init_modules();
+
+    for (int i = 0; i < argc; i++) {
+        if (!strcasecmp(argv[i], "--assume_copied_vm")) {
+            util::storeCurrentUuid();
+            util::generateNewMacAdresses();
+            break;
+        }
+        if (!strcasecmp(argv[i], "--assume_moved_vm")) {
+            util::storeCurrentUuid();
+            break;
+        }
+    }
 
     // UUID / copy / move detection
     if (!util::compareUuid()) {
@@ -932,7 +961,7 @@ main(int argc, char *argv[])
     QTimer::singleShot(0, &app, [] {
         plat_set_thread_name(nullptr, "qt_thread");
 
-#ifdef Q_OS_WINDOWS
+#ifdef USE_QDARKSTYLE
         extern bool NewDarkMode;
         NewDarkMode = util::isWindowsLightTheme();
 #endif

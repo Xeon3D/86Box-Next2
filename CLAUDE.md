@@ -368,7 +368,7 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   which names the Tools menu item "Install 86Box Guest Tools 1.1.N..." or, for an older agent,
   "Update 86Box Guest Tools (old -> new)..." (`GuestTools::updateInstallAction()`); `gt state`
   logs it. Raise the minor version by hand for new features.
-- STB video cards from STB's own release BIOSes (in `ROMS-EXTRA`, not the 86Box ROM set):
+- STB video cards from STB's own release BIOSes (in `F:\Claude\Roms`, untracked; not the 86Box ROM set):
   - S3 ViRGE/MX (86C260, 5333:8C01), STB Symmetry 3D (`vid_s3_virge.c`, `S3_VIRGEMX`: the GX2
     core, 4 MB SGRAM, ROM `video/s3virge/stb_symmetry3d_m5_17_14.rom`). The datasheet's paired
     CRTC registers (`s3_virge_mx_paired`) exist per controller: SR26 bit 3 blocks Controller 1
@@ -396,7 +396,7 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
     "Chips & Technologies 65554 PCI" driver works; its 1024x600 entry fails.
   - `debug_cmd dev` dumps both cards' registers.
 - S3 Savage3D, the STB Nitro 3200 (`src/video/vid_s3_savage.c`, AGP and PCI, 5333:8A21, 8 MB;
-  BIOS `roms/video/s3savage/n32_110.rom` from STB's SourceSafe dump, in ROMS-EXTRA): ViRGE-style VGA
+  BIOS `roms/video/s3savage/n32_110.rom` from STB's SourceSafe dump, in `F:\Claude\Roms`): ViRGE-style VGA
   core, 128 MB BAR0 (LFB, MMIO at +16 MB with the VGA ports at 8000h + port, six tiled apertures at
   +32 MB), primary stream via MM81C0/81C8 with 16/32 bpp tiled scan-out (2 KB tiles of 8x8-pixel
   blocks, a block being two 4-pixel columns of 8 rows: S3's DDSURF.C/DDBLTTEX.C), and the BCI 2D engine (rectangles with ROP3, patterns, host and screen blits, text,
@@ -437,23 +437,25 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   "86Box-Next 7.0 - Release 1" (the About box and the log keep the build number too). It is
   read from the environment on every build, so the next build without it is a plain build
   again. Every release: `tools/make-release.sh N` builds Release N, keeps its zip in
-  `F:\Claude\86Box-Next\RELEASES-ARCHIVE` (one per release, never overwritten) and stages
+  `Releases-archive/` (repo root, git-ignored; one per release, never overwritten) and stages
   exactly those exes in the rigs (`isp-server.exe` in `Latest`); then tag `release-N`, push it,
   and `gh release create` with the zip (the script prints both).
 
 ## Layout and the staged rig
 `F:\Claude\86Box-Next2` is this repository (the old 86Box-Next clone, with the old recompiler,
 is `F:\Claude\86Box-Next\86box`); `F:\Claude\86Box-Next2\Latest` (`Latest/` in the repo root,
-git-ignored; ROMS-EXTRA and RELEASES-ARCHIVE stay in `F:\Claude\86Box-Next`, `$NEXT_HOME` in the
-scripts) holds the owner's test rigs, one folder per guest OS (`Windows 98 SE` -- the PCMCIA/USB
+git-ignored) holds the owner's test rigs, one folder per guest OS (`Windows 98 SE` -- the PCMCIA/USB
 machine; its Windows asks for a network login at boot, and runs ScanDisk at boot after
 an exit without a Windows shutdown: Enter for both -- `MS-DOS`, `OS2 Warp 3`, ...),
 each with the newest build. `tools/stage-rig.sh` replaces only the exe (plus DLLs for a
 dynamic build) in every rig folder holding an `86box.cfg` or an exe; a rig's
-`roms/` is only created when missing (86Box ROM set + MegaPPBox's `roms/megatouch`) and
-only refreshed with `--update-roms`; ROMs in neither set (the NVIDIA RIVA 128/128 ZX BIOSes in
-`video/nvidia/nv3/`) live in `F:\Claude\86Box-Next\ROMS-EXTRA` (roms/ layout, outside the repo) and are
-added to every rig that lacks them -- leave the ROMs alone unless strictly necessary. **Never delete
+`roms/` gains the files of the global ROM set it lacks, and is only refreshed with `--update-roms`.
+The global ROM set is `F:\Claude\Roms` (`$NEXT_ROMS`, default `../Roms`): a clone of Xeon3D/roms
+(the 86Box set plus the NVIDIA BIOSes) with 86Box/roms as `upstream` -- to take upstream's new ROMs,
+`git -C ../Roms fetch upstream && git -C ../Roms merge upstream/master` -- plus, untracked and never
+pushed, everything else of ours (the old ROMS-EXTRA: STB, Savage, Permedia 2, Alliance, NV3;
+MegaPPBox's `megatouch`; the Sound Canvas/MT-32 dumps). New ROMs go there, never into a rig only.
+Leave the rigs' ROMs alone unless strictly necessary. **Never delete
 anything else in the rigs** -- `86box.cfg`, `nvr/` and disk images are theirs.
 Restage after every change; it refuses while 86Box-Next is running.
 

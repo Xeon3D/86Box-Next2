@@ -6,11 +6,10 @@
 # 1. Builds build-static with NEXT_RELEASE=N: the title bar reads
 #    "86Box-Next 7.0 - Release N".
 # 2. Packages the stripped 86Box-Next.exe and isp-server.exe with COPYING as
-#    $NEXT_HOME/RELEASES-ARCHIVE/86Box-Next-Release-N-win64.zip -- the archive keeps
+#    Releases-archive/86Box-Next-Release-N-win64.zip -- the archive keeps
 #    every release's zip; an existing one is never overwritten.
 # 3. Stages exactly those exes: 86Box-Next.exe into every rig in Latest/
-#    (as tools/stage-rig.sh picks them), isp-server.exe into Latest/
-#    ($NEXT_HOME, for the archive, defaults to ../86Box-Next).
+#    (as tools/stage-rig.sh picks them), isp-server.exe into Latest/.
 #
 # Publishing stays a separate step (it is printed at the end): tag the
 # commit release-N, push the tag, gh release create with the zip.
@@ -20,8 +19,7 @@ case "$N" in
     "" | *[!0-9A-Za-z._-]*) echo "usage: tools/make-release.sh N" >&2; exit 1 ;;
 esac
 NAME=86Box-Next-Release-$N
-NEXT_HOME=${NEXT_HOME:-../86Box-Next}  # ROMS-EXTRA and the release archive, outside the repo
-ARCHIVE=$NEXT_HOME/RELEASES-ARCHIVE
+ARCHIVE=Releases-archive  # one zip per release, in the repo root, git-ignored
 ZIP=$ARCHIVE/$NAME-win64.zip
 OUT=Latest  # the rigs: Latest/ in the repo root, git-ignored
 UCRT=/c/msys64/ucrt64

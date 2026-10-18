@@ -88,3 +88,4 @@ CMakeLists.txt.user
 
 # 86Box-Next2: the owner's test rigs (tools/stage-rig.sh, tools/make-release.sh)
 /Latest/
+/Releases-archive/

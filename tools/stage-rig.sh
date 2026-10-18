@@ -3,16 +3,15 @@
 # Latest holds one rig per guest OS ("Windows 98 SE", "MS-DOS", ...), each a
 # folder with its own 86box.cfg, nvr/, disk images and roms/: the exe goes
 # into every rig folder that has an 86box.cfg or an 86Box-Next.exe (folders
-# with neither are left alone).  A rig without roms/ gets the 86Box ROM set
-# and MegaPPBox's Megatouch ROMs; every rig gets whatever $NEXT_HOME/ROMS-EXTRA holds
-# (ROMs in neither set, e.g. the NVIDIA BIOSes) that its roms/ lacks.
+# with neither are left alone).  Every rig gets whatever files of the global
+# ROM set ($NEXT_ROMS, default ../Roms = F:\Claude\Roms: the 86Box ROM set
+# plus ours -- NVIDIA, Megatouch, ...) its roms/ lacks.
 #
 # The rigs are where the machines being tested live, so this only ever
 # replaces the exe (and, for a dynamic build, its DLLs and Qt plugins) and
 # never deletes anything: 86box.cfg, nvr/, disk images and whatever else is
-# there are left alone.  roms/ is left alone too: it is only created when it
-# is missing (and roms/megatouch only added when missing), unless
-# --update-roms asks for both to be refreshed.
+# there are left alone.  roms/ only gains missing files, unless
+# --update-roms asks for every file of the global set to be refreshed.
 #
 # The default is the static build (build-static: one self-contained exe).  A
 # dynamic build directory also works; then every DLL and Qt plugin it needs
@@ -27,14 +26,14 @@ if [ "$1" = "--update-roms" ]; then
     shift
 fi
 BUILD=${1:-build-static}
-NEXT_HOME=${NEXT_HOME:-../86Box-Next}  # ROMS-EXTRA and the release archive, outside the repo
 OUT=Latest  # the rigs: Latest/ in the repo root, git-ignored
-EXTRA=$NEXT_HOME/ROMS-EXTRA
+ROMS=${NEXT_ROMS:-../Roms}  # the global ROM set, outside the repo
 UCRT=/c/msys64/ucrt64
 EXE="$BUILD/src/86Box-Next.exe"
 export PATH="$UCRT/bin:/c/msys64/usr/bin:$PATH"
 
 [ -f "$EXE" ] || { echo "no $EXE - build first" >&2; exit 1; }
+[ -d "$ROMS/machines" ] || { echo "no ROM set in $ROMS" >&2; exit 1; }
 # Only an 86Box-Next running from a rig blocks the copy; test VMs elsewhere
 # (work-* folders) run their own exe copies.
 RIGS_WIN=$(cygpath -w "$(cd "$OUT" && pwd)")
@@ -72,40 +71,14 @@ done
 
 stage_rig() {
     RIG=$1
-    # The 86Box ROM set: cloned only if there is none; pulled only when asked.
-    if [ ! -d "$RIG/roms" ]; then
-        git clone -q --depth 1 https://github.com/86Box/roms.git "$RIG/roms"
-    elif [ "$UPDATE_ROMS" = 1 ] && [ -d "$RIG/roms/.git" ]; then
-        git -C "$RIG/roms" pull -q --ff-only || true
-    fi
-
-    # The Merit Megatouch boards' ROMs (board ROM, key password tables, CMOS
-    # images) live in MegaPPBox's repository, not in the 86Box ROM set: added
-    # only if missing, refreshed only when asked.
-    if [ ! -d "$RIG/roms/megatouch" ] || [ "$UPDATE_ROMS" = 1 ]; then
-        MEGA=../../MegaPPBox-src
-        TMP=""
-        if [ ! -d "$MEGA/roms/megatouch" ]; then
-            TMP=$(mktemp -d)
-            git clone -q --depth 1 --filter=blob:none --sparse https://github.com/Xeon3D/MegaPPBox.git "$TMP/m"
-            git -C "$TMP/m" sparse-checkout set roms/megatouch
-            MEGA="$TMP/m"
-        fi
-        mkdir -p "$RIG/roms/megatouch"
-        cp -r "$MEGA/roms/megatouch/." "$RIG/roms/megatouch/"
-        [ -n "$TMP" ] && rm -rf "$TMP"
-    fi
-
-    # ROMs that are in neither set (the NVIDIA RIVA 128 / 128 ZX BIOSes in
-    # video/nvidia/nv3), kept outside the repository in $NEXT_HOME/ROMS-EXTRA with
-    # the roms/ layout: missing files are added, existing ones are only
-    # replaced when asked.
-    if [ -d "$EXTRA" ]; then
-        if [ "$UPDATE_ROMS" = 1 ]; then
-            cp -r "$EXTRA/." "$RIG/roms/"
-        else
-            cp -rn "$EXTRA/." "$RIG/roms/"
-        fi
+    # The global ROM set ($ROMS, F:\Claude\Roms): the 86Box set plus ours
+    # (NVIDIA, Megatouch, ...).  A rig without roms/ gets a copy; otherwise
+    # missing files are added, and existing ones replaced only when asked.
+    mkdir -p "$RIG/roms"
+    if [ "$UPDATE_ROMS" = 1 ]; then
+        (cd "$ROMS" && tar cf - --exclude=.git .) | (cd "$RIG/roms" && tar xf -)
+    else
+        (cd "$ROMS" && tar cf - --exclude=.git .) | (cd "$RIG/roms" && tar xf - --skip-old-files)
     fi
 
     strip -o "$RIG/86Box-Next.exe" "$EXE"

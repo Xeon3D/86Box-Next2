@@ -1,6 +1,6 @@
 # 86Box-Next: additions over upstream 86Box
 
-Status as of **Release 2.1.5.1** (build 183, 18 October 2026). For each addition: what it is,
+Status as of **Release 3.0** (build 185, 18 October 2026; the first 86Box-Next2 release, new recompiler only). For each addition: what it is,
 its status, and the known bugs or limitations. "Driver" or "hardware" means real hardware with
 that driver behaves the same; those are not emulation bugs. Details live in `CLAUDE.md`, the
 handoff files.

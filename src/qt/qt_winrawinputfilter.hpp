@@ -41,11 +41,7 @@
 
 #include "qt_mainwindow.hpp"
 
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #    define result_t qintptr
-#else
-#    define result_t long
-#endif
 
 class WindowsRawInputFilter : public QObject, public QAbstractNativeEventFilter {
     Q_OBJECT

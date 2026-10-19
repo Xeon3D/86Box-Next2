@@ -26,11 +26,7 @@
 
 #include "qt_vmmanager_mainwindow.hpp"
 
-#if QT_VERSION_MAJOR >= 6
 #    define result_t qintptr
-#else
-#    define result_t long
-#endif
 
 class WindowsDarkModeFilter : public QObject, public QAbstractNativeEventFilter {
     Q_OBJECT

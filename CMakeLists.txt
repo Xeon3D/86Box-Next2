@@ -71,9 +71,6 @@ if(VCPKG_TOOLCHAIN)
         set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
         set(STATIC_BUILD OFF)
     endif()
-
-    # `vcpkg.json` defaults to Qt6
-    set(USE_QT6 ON)
 endif()
 
 if(WIN32)
@@ -202,7 +199,10 @@ option(RAGE128_MAXX "ATI Rage Fury MAXX" ${DEV_BRANCH})
 
 # Ditto but for Qt
 if(QT)
-    option(USE_QT6 "Use Qt6 instead of Qt5" OFF)
+    # 86Box-Next: Qt 6 only.
+    if(DEFINED USE_QT6 AND NOT USE_QT6)
+        message(FATAL_ERROR "Qt 5 is not supported: USE_QT6 is gone, builds are Qt 6 only")
+    endif()
     if(APPLE)
         option(MOLTENVK "Use MoltenVK libraries for Vulkan support on macOS. Requires a Vulkan-enabled QT." OFF)
     endif()

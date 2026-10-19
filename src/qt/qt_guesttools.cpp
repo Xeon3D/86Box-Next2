@@ -442,11 +442,7 @@ public:
     }
 
 protected:
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     QVariant retrieveData(const QString &mimeType, QMetaType) const override
-#else
-    QVariant retrieveData(const QString &mimeType, QVariant::Type) const override
-#endif
     {
         QVariantList urls;
 
@@ -630,11 +626,7 @@ static DWORD noRaiseUntil = 0;
    bring the window to the top, so WM_WINDOWPOSCHANGING keeps its Z order. */
 class FocusFilter : public QAbstractNativeEventFilter {
 public:
-#    if QT_VERSION_MAJOR >= 6
     bool nativeEventFilter(const QByteArray &eventType, void *message, qintptr *) override
-#    else
-    bool nativeEventFilter(const QByteArray &eventType, void *message, long *) override
-#    endif
     {
         if (eventType != "windows_generic_MSG")
             return false;

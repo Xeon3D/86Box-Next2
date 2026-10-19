@@ -39,10 +39,9 @@ BuildRequires: libxkbcommon-x11-devel
 BuildRequires: libXi-devel
 BuildRequires: ninja-build
 BuildRequires: openal-soft-devel
-BuildRequires: qt5-linguist
-BuildRequires: qt5-qtconfiguration-devel
-BuildRequires: qt5-qtbase-private-devel
-BuildRequires: qt5-qtbase-static
+BuildRequires: qt6-linguist
+BuildRequires: qt6-qtbase-private-devel
+BuildRequires: qt6-qtbase-static
 BuildRequires: rtmidi-devel
 BuildRequires: wayland-devel
 BuildRequires: SDL2-devel

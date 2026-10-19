@@ -782,24 +782,18 @@ void
 VMManagerMain::deleteSystem(VMManagerSystem *sysconfig)
 {
     auto config = new VMManagerConfig(VMManagerConfig::ConfigType::General);
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     int trash = config->getStringValue("delete_to_trash").toInt();
-#endif
     QString msgboxText = tr("Do you really want to delete the virtual machine \"%1\" and all its files?").arg(sysconfig->displayName);
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     if (!trash)
-#endif
         msgboxText.append(QStringLiteral(" ") % tr("This action cannot be undone!"));
     QMessageBox msgbox(QMessageBox::Icon::Warning, tr("Warning"), msgboxText, QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No, qobject_cast<QWidget *>(this->parent()));
     msgbox.exec();
     if (msgbox.result() == QMessageBox::Yes) {
         bool rmdirResult;
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
         if (trash) {
             auto qrmdir = new QFile(sysconfig->config_dir);
             rmdirResult = qrmdir->moveToTrash();
         } else
-#endif
         {
             auto qrmdir = new QDir(sysconfig->config_dir);
             rmdirResult = qrmdir->removeRecursively();

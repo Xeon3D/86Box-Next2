@@ -27,9 +27,6 @@
 #include <QTimer>
 #include <QWidget>
 #include <QWindow>
-#if !defined NO_BUFFER_STORAGE && !(QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
-#    include <QtOpenGLExtensions/QOpenGLExtensions>
-#endif
 
 #include <array>
 #include <atomic>

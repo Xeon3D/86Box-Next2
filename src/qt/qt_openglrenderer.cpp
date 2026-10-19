@@ -1434,11 +1434,7 @@ OpenGLRenderer::event(QEvent *event)
             case QEvent::MouseMove:
             case QEvent::MouseButtonRelease: {
                 auto *me = static_cast<QMouseEvent *>(event);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
                 const QPointF pos = me->position();
-#else
-                const QPointF pos(me->x(), me->y());
-#endif
                 qt_osd_mouse_pos((float) pos.x(), (float) pos.y());
                 if (event->type() == QEvent::MouseButtonPress)
                     qt_osd_mouse_button(me->button(), true);

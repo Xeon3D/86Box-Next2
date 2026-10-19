@@ -251,11 +251,7 @@ RendererCommon::eventDelegate(QEvent *event, bool &result)
         case QEvent::MouseButtonRelease:
             if (qt_osd_is_visible()) {
                 auto *me = static_cast<QMouseEvent *>(event);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
                 qt_osd_mouse_pos((float) me->position().x(), (float) me->position().y());
-#else
-                qt_osd_mouse_pos((float) me->x(), (float) me->y());
-#endif
                 if (event->type() == QEvent::MouseButtonPress)
                     qt_osd_mouse_button(me->button(), true);
                 else if (event->type() == QEvent::MouseButtonRelease)

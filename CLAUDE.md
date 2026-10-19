@@ -465,14 +465,16 @@ Restage after every change; it refuses while 86Box-Next is running.
 ## Building (Windows)
 Static (the default, and what gets staged): MSYS2 UCRT64 with `qt6-static`, `libtiff`,
 `libwebp` and `libusb` installed:
-`MSYSTEM_PREFIX=C:/msys64/ucrt64 cmake -S . -B build-static -G Ninja -DCMAKE_BUILD_TYPE=Release -DQT=ON -DUSE_QT6=ON -DSTATIC_BUILD=ON && cmake --build build-static`
+`MSYSTEM_PREFIX=C:/msys64/ucrt64 cmake -S . -B build-static -G Ninja -DCMAKE_BUILD_TYPE=Release -DQT=ON -DSTATIC_BUILD=ON && cmake --build build-static`
 A dynamic `build/` (`-DSTATIC_BUILD=OFF`) links faster while iterating; run it with
 `C:\msys64\ucrt64\bin` on PATH, or Windows loads a mismatched Qt6Core.
 Tests live in their own tree, `build-tests` (`-DBUILD_TESTING=ON -DQT=OFF -DSTATIC_BUILD=ON`,
 GTest from `mingw-w64-ucrt-x86_64-gtest`): build a suite's target there, then
 `ctest --test-dir build-tests -R <Name>` (ours: `Isp|Modem|Network`). Keep build-static's
 BUILD_TESTING off: some upstream tests (pcjx, fdc_read_id) do not build, which breaks a full build.
-Qt 5 compatibility check only: `build-qt5` (dynamic, `-DUSE_QT6=OFF -DSTATIC_BUILD=OFF`, MSYS2
-`qt5-base` + `qt5-tools`). Never release or stage it: releases are Qt 6 only, and
-`tools/make-release.sh` refuses a build-static that is not `USE_QT6=ON`. Qt 6-only APIs
-(e.g. `QMouseEvent::position()`) need a `QT_VERSION_CHECK(6, 0, 0)` fallback.
+Qt 6 only: Qt 5 support is removed, upstream's included (2026-10-19) -- no `USE_QT6` option
+(CMake stops on `-DUSE_QT6=OFF`), `QT_MAJOR` is 6, and no `QT_VERSION_CHECK(6, 0, 0)` / 5.x
+fallbacks in the sources (checks for Qt 6 minors, e.g. 6.7, stay). Write Qt 6 code only. Upstream
+still supports Qt 5, so its syncs can conflict where it touches those fallbacks: take the Qt 6
+branch and drop the Qt 5 one. Upstream's CI files (`.ci/`, the disabled workflows) still name Qt 5;
+they never run here and are left as they are.

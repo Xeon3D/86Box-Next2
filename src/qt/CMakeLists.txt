@@ -23,11 +23,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if (USE_QT6)
-    set(QT_MAJOR 6)
-else()
-    set(QT_MAJOR 5)
-endif()
+set(QT_MAJOR 6)
 
 if (QT6_FORCE_DYNAMIC)
     set(QT_STATIC OFF)
@@ -70,22 +66,18 @@ int main() { return 0; }
     endif()
 endif()
 
-if(USE_QT6)
-    set(QT_NO_PRIVATE_MODULE_WARNING ON)
-    if(USE_QT6_BELOW10)
-        find_package(Qt6 COMPONENTS Gui)
-    else()
-        find_package(Qt6 COMPONENTS GuiPrivate)
-    endif()
+set(QT_NO_PRIVATE_MODULE_WARNING ON)
+if(USE_QT6_BELOW10)
+    find_package(Qt6 COMPONENTS Gui)
 else()
-    include_directories(${Qt5Gui_PRIVATE_INCLUDE_DIRS})
+    find_package(Qt6 COMPONENTS GuiPrivate)
 endif()
 
 # The MSYS2 static Qt 6 finds its third-party libraries through CMake
 # modules that don't know about their static dependencies, so append
 # those to the imported targets to keep them after the library itself
 # on the link line.
-if(QT_STATIC AND MINGW AND USE_QT6)
+if(QT_STATIC AND MINGW)
     find_package(PkgConfig REQUIRED)
     if(TARGET TIFF::TIFF)
         pkg_check_modules(LIBTIFF libtiff-4)
@@ -98,8 +90,8 @@ if(QT_STATIC AND MINGW AND USE_QT6)
 endif()
 
 # TODO: Is this the correct way to do this, and is it required on any
-# other platforms or with Qt 5?
-if(APPLE AND USE_QT6 AND VCPKG_TOOLCHAIN)
+# other platforms?
+if(APPLE AND VCPKG_TOOLCHAIN)
     find_package(Qt6Gui/Qt6QCocoaIntegrationPlugin REQUIRED)
     find_package(Qt6Widgets/Qt6QMacStylePlugin REQUIRED)
     find_package(Qt6Gui/Qt6QICOPlugin REQUIRED)
@@ -547,7 +539,7 @@ if(WIN32)
         qt_import_plugins(plat INCLUDE Qt${QT_MAJOR}::QWindowsIntegrationPlugin Qt${QT_MAJOR}::QICOPlugin ${QT_WINDOWS_STYLE_PLUGIN})
         # 86Box-Next: a static Qt 6 from MSYS2 brings its TIFF and WebP image
         # plugins, whose own static dependencies are not on Qt's link line.
-        if(MINGW AND USE_QT6)
+        if(MINGW)
             find_package(PkgConfig REQUIRED)
             pkg_check_modules(QT_STATIC_IMAGE_LIBS QUIET libtiff-4 libwebpdemux libwebpmux libwebp)
             if(QT_STATIC_IMAGE_LIBS_FOUND)
@@ -555,24 +547,12 @@ if(WIN32)
             endif()
         endif()
     else()
-        if(USE_QT6)
-            install(CODE "
-                get_filename_component(CMAKE_INSTALL_PREFIX_ABSOLUTE \${CMAKE_INSTALL_PREFIX} ABSOLUTE)
-                execute_process(
-                    COMMAND $<TARGET_FILE:Qt${QT_MAJOR}::windeployqt>
-                    \"\${CMAKE_INSTALL_PREFIX_ABSOLUTE}/$<TARGET_FILE_NAME:86Box>\")
-            ")
-        else()
-            find_program(WINDEPLOYQT_EXECUTABLE windeployqt)
-            if(WINDEPLOYQT_EXECUTABLE)
-                install(CODE "
-                    get_filename_component(CMAKE_INSTALL_PREFIX_ABSOLUTE \${CMAKE_INSTALL_PREFIX} ABSOLUTE)
-                    execute_process(
-                        COMMAND ${WINDEPLOYQT_EXECUTABLE}
-                        \"\${CMAKE_INSTALL_PREFIX_ABSOLUTE}/$<TARGET_FILE_NAME:86Box>\")
-                ")
-            endif()
-        endif()
+        install(CODE "
+            get_filename_component(CMAKE_INSTALL_PREFIX_ABSOLUTE \${CMAKE_INSTALL_PREFIX} ABSOLUTE)
+            execute_process(
+                COMMAND $<TARGET_FILE:Qt${QT_MAJOR}::windeployqt>
+                \"\${CMAKE_INSTALL_PREFIX_ABSOLUTE}/$<TARGET_FILE_NAME:86Box>\")
+        ")
 
         # The Qt plugins live in the vcpkg tree rather than next to the
         # binary, so point Qt at them to make the build tree runnable
@@ -585,9 +565,9 @@ if(WIN32)
     endif()
 endif()
 
-# loads a macro to install Qt5 plugins on macOS
+# loads a macro to install Qt plugins on macOS
 # based on https://stackoverflow.com/questions/35612687/cmake-macos-x-bundle-with-bundleutiliies-for-qt-application
-macro(install_qt5_plugin _qt_plugin_name _runtime_plugins_var _prefix)
+macro(install_qt_plugin _qt_plugin_name _runtime_plugins_var _prefix)
     get_target_property(_qt_plugin_path "${_qt_plugin_name}" LOCATION)
     if(EXISTS "${_qt_plugin_path}")
         get_filename_component(_qt_plugin_file "${_qt_plugin_path}" NAME)
@@ -621,11 +601,11 @@ if (APPLE AND CMAKE_MACOSX_BUNDLE)
     set(INSTALL_CMAKE_DIR "${prefix}/Resources")
     set(INSTALL_LIB_DIR "${prefix}/Frameworks")
 
-    # using the install_qt5_plugin to add Qt plugins into the macOS app bundle
-    install_qt5_plugin("Qt${QT_MAJOR}::QCocoaIntegrationPlugin" RUNTIME_PLUGINS ${prefix})
-    install_qt5_plugin("Qt${QT_MAJOR}::QMacStylePlugin" RUNTIME_PLUGINS ${prefix})
-    install_qt5_plugin("Qt${QT_MAJOR}::QICOPlugin" RUNTIME_PLUGINS ${prefix})
-    install_qt5_plugin("Qt${QT_MAJOR}::QICNSPlugin" RUNTIME_PLUGINS ${prefix})
+    # using the install_qt_plugin to add Qt plugins into the macOS app bundle
+    install_qt_plugin("Qt${QT_MAJOR}::QCocoaIntegrationPlugin" RUNTIME_PLUGINS ${prefix})
+    install_qt_plugin("Qt${QT_MAJOR}::QMacStylePlugin" RUNTIME_PLUGINS ${prefix})
+    install_qt_plugin("Qt${QT_MAJOR}::QICOPlugin" RUNTIME_PLUGINS ${prefix})
+    install_qt_plugin("Qt${QT_MAJOR}::QICNSPlugin" RUNTIME_PLUGINS ${prefix})
 
     # Install libraries that are loaded at runtime and not linked
     install_bundle_library("${GHOSTSCRIPT_LIB}" "libgs.dylib" RUNTIME_PLUGINS ${INSTALL_LIB_DIR})
@@ -723,7 +703,7 @@ if (UNIX AND NOT APPLE AND NOT HAIKU)
         message(WARNING "Wayland client development files not found; Wayland mouse capture will be disabled.")
     endif()
 
-    # Add private headers for Qt5 if required.
+    # Add the Qt private headers if required.
     if (DEFINED QT_PRIVATE_HEADERS)
         find_package(Qt${QT_MAJOR}Gui)
         if (Qt${QT_MAJOR}Gui_FOUND)

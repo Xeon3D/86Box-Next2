@@ -24,9 +24,6 @@
 #include <QImageWriter>
 #include <QMimeData>
 #include <QStyleHints>
-#if QT_VERSION <= QT_VERSION_CHECK(5, 14, 0)
-#    include <QDesktopWidget>
-#endif
 #include <QUuid>
 #include "qt_util.hpp"
 
@@ -59,11 +56,7 @@ namespace util {
 QScreen *
 screenOfWidget(QWidget *widget)
 {
-#if QT_VERSION <= QT_VERSION_CHECK(5, 14, 0)
-    return QApplication::screens()[QApplication::desktop()->screenNumber(widget) == -1 ? 0 : QApplication::desktop()->screenNumber(widget)];
-#else
     return widget->screen();
-#endif
 }
 
 #ifdef Q_OS_WINDOWS

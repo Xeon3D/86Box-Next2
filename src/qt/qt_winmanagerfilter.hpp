@@ -20,11 +20,7 @@
 #include <QByteArray>
 #include <QEvent>
 
-#if QT_VERSION_MAJOR >= 6
 #    define result_t qintptr
-#else
-#    define result_t long
-#endif
 
 /*
  * Filters native events for messages from VM-manager and

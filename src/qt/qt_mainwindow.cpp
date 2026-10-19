@@ -467,12 +467,8 @@ MainWindow::MainWindow(QWidget *parent)
             if (hook_enabled)
                 this->grabKeyboard();
             if (ui->stackedWidget->mouse_capture_func) {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
                 auto *win = ui->stackedWidget->captureWindow();
                 ui->stackedWidget->mouse_capture_func(win ? win : this->windowHandle());
-#else
-                ui->stackedWidget->mouse_capture_func(this->windowHandle());
-#endif
             }
         } else {
             this->releaseKeyboard();
@@ -929,11 +925,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     setContextMenuPolicy(Qt::PreventContextMenu);
     /* Remove default Shift+F10 handler, which unfocuses keyboard input even with no context menu. */
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     connect(new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F10), this), &QShortcut::activated, this, []() { });
-#else
-    connect(new QShortcut(QKeySequence(Qt::SHIFT + Qt::Key_F10), this), &QShortcut::activated, this, []() { });
-#endif
 
     connect(this, &MainWindow::initRendererMonitor, this, &MainWindow::initRendererMonitorSlot);
     connect(this, &MainWindow::initRendererMonitorForNonQtThread, this, &MainWindow::initRendererMonitorSlot, Qt::BlockingQueuedConnection);

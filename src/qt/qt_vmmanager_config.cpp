@@ -28,9 +28,7 @@ extern "C" {
 QVariantHash VMManagerConfig::generalDefaults = {
     { "hide_tool_bar",   0 },
     { "regex_search",    0 },
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     { "delete_to_trash", 0 },
-#endif
 #if EMU_BUILD_NUM != 0
     { "update_check",    1 },
 #endif
@@ -47,9 +45,6 @@ VMManagerConfig::VMManagerConfig(const ConfigType type, const QString &section)
     config_type = type;
 
     settings = new QSettings(configFile, QSettings::IniFormat, this);
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    settings->setIniCodec("UTF-8");
-#endif
     settings->setFallbacksEnabled(false);
     if (type == ConfigType::System && !section.isEmpty()) {
         settings->beginGroup(section);

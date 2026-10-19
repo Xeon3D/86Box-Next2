@@ -570,14 +570,7 @@ main(int argc, char *argv[])
     else
         acp_utf8 = 0;
 #endif
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    QApplication::setAttribute(Qt::AA_DisableHighDpiScaling, false);
-    QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
-    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-#endif
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
     QApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
-#endif
     QApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
 
     QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();

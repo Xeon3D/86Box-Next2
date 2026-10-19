@@ -865,8 +865,15 @@ GuestTools::insertMedia(QWidget *parent)
     const QString title = tr("86Box Guest Tools");
     int           cd    = -1;
     int           fd    = -1;
-    bool          reset = false;
     QString       text;
+
+    if (!guest_tools_enabled) {
+        QMessageBox::information(parent, title,
+                                 tr("86Box Guest Tools are off for this machine.\n\n"
+                                    "Turn them on in Settings > Other peripherals first, "
+                                    "then install them."));
+        return;
+    }
 
     for (int i = 0; (i < CDROM_NUM) && (cd < 0); i++) {
         if (cdrom[i].bus_type != CDROM_BUS_DISABLED)
@@ -881,22 +888,6 @@ GuestTools::insertMedia(QWidget *parent)
         return;
     }
 
-    if (!guest_tools_enabled) {
-        if (QMessageBox::question(parent, title,
-                                  tr("86Box Guest Tools are off for this machine. Turn them on?\n\n"
-                                     "The machine restarts (as after changing its settings)."))
-            != QMessageBox::Yes)
-            return;
-        const int was_paused = dopause;
-        plat_pause(1);
-        guest_tools_enabled = 1;
-        config_changed      = 2;
-        pc_reset_hard();
-        config_save();
-        plat_pause(was_paused);
-        reset = true;
-    }
-
     const QString path = mediaFile((cd >= 0) ? QStringLiteral("iso") : QStringLiteral("img"));
     if (path.isEmpty()) {
         QMessageBox::warning(parent, title, tr("Could not write the Guest Tools image to the data directory."));
@@ -906,10 +897,9 @@ GuestTools::insertMedia(QWidget *parent)
     if (cd >= 0) {
         MediaMenu::ptr->cdromMount(cd, path);
         text = tr("The 86Box Guest Tools CD is in the machine's CD-ROM drive.\n\n"
-                  "Windows 95 and later start the installer by themselves%1. "
+                  "Windows 95 and later start the installer by themselves. "
                   "If not, run 86BOXGT.EXE from the CD; on Windows 3.x, GTWIN.EXE "
-                  "(Program Manager: File > Run).")
-                   .arg(reset ? tr(" (Windows 95/98: when Windows starts)") : QString());
+                  "(Program Manager: File > Run).");
     } else {
         MediaMenu::ptr->floppyMount(fd, path, true);
         text = tr("The 86Box Guest Tools floppy is in drive %1:.\n\n"

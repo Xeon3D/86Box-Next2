@@ -328,17 +328,30 @@ setting_set(const char *name, DWORD val)
 
 /* A program that confines the pointer (a game in a window, say) wants the
    mouse to itself: stop following the host then, so the emulator falls
-   back to capturing the mouse. */
+   back to capturing the mouse.  Windows' own move/size loop clips the
+   cursor too, while a window is dragged by its caption or border: a clip
+   that only came after the button went down is that, and the pointer keeps
+   following (SetCursorPos stays inside the clip).  Poll thread only. */
+static int clip_at_up; /* the cursor was confined the last time the button was seen up */
+
 static int
 pointer_confined(void)
 {
     RECT clip;
+    int  confined;
 
     if (!GetClipCursor(&clip))
         return 0;
-    return (clip.left > 0) || (clip.top > 0) ||
-           (clip.right < GetSystemMetrics(SM_CXSCREEN)) ||
-           (clip.bottom < GetSystemMetrics(SM_CYSCREEN));
+    confined = (clip.left > 0) || (clip.top > 0) ||
+               (clip.right < GetSystemMetrics(SM_CXSCREEN)) ||
+               (clip.bottom < GetSystemMetrics(SM_CYSCREEN));
+    /* GetAsyncKeyState reads the physical buttons: the primary one is the
+       right one when they are swapped. */
+    if (!(GetAsyncKeyState(GetSystemMetrics(SM_SWAPBUTTON) ? VK_RBUTTON : VK_LBUTTON) & 0x8000)) {
+        clip_at_up = confined;
+        return confined;
+    }
+    return confined && clip_at_up;
 }
 
 static DWORD WINAPI

@@ -144,15 +144,26 @@ gt_hello(void)
 
 /* ---- Pointer ----------------------------------------------------------- */
 
+/* A program that confines the pointer wants the mouse to itself; Windows'
+   move/size loop clips it too while a window is dragged -- a clip that only
+   came after the button went down is that, and the pointer keeps following. */
+static int clip_at_up; /* the cursor was confined the last time the button was seen up */
+
 static int
 pointer_confined(void)
 {
     RECT clip;
+    int  confined;
 
     GetClipCursor(&clip);
-    return (clip.left > 0) || (clip.top > 0) ||
-           (clip.right < GetSystemMetrics(SM_CXSCREEN)) ||
-           (clip.bottom < GetSystemMetrics(SM_CYSCREEN));
+    confined = (clip.left > 0) || (clip.top > 0) ||
+               (clip.right < GetSystemMetrics(SM_CXSCREEN)) ||
+               (clip.bottom < GetSystemMetrics(SM_CYSCREEN));
+    if (!(GetAsyncKeyState(GetSystemMetrics(SM_SWAPBUTTON) ? VK_RBUTTON : VK_LBUTTON) & 0x8000)) {
+        clip_at_up = confined;
+        return confined;
+    }
+    return confined && clip_at_up;
 }
 
 /* One POLL; returns non-zero while the host pointer is over the display

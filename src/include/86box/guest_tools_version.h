@@ -12,9 +12,9 @@
 
 #define GT_TOOLS_VERSION_MAJOR 1
 #define GT_TOOLS_VERSION_MINOR 1
-#define GT_TOOLS_REVISION      1
+#define GT_TOOLS_REVISION      2
 
-#define GT_TOOLS_VERSION_STR   "1.1.1"
+#define GT_TOOLS_VERSION_STR   "1.1.2"
 
 /* As the agents send it in HELLO: major.minor.revision, 8.8.16 bits. */
 #define GT_TOOLS_VERSION       (((unsigned long) GT_TOOLS_VERSION_MAJOR << 24) | \

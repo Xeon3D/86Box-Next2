@@ -232,8 +232,12 @@ RendererStack::mouseReleaseEvent(QMouseEvent *event)
 #endif
 
     event->accept();
-    if (guestToolsPointer()) {
+    /* A button pressed while Guest Tools had the pointer goes up the same
+       way, even if the agent stopped following meanwhile: otherwise this
+       release would capture the mouse and the guest's button stay down. */
+    if (guestToolsPointer() || (guestToolsHeld & event->button())) {
         mouse_set_buttons_ex(mouse_get_buttons_ex() & ~event->button());
+        guestToolsHeld &= ~event->button();
         isMouseDown &= ~1;
         return;
     }
@@ -294,6 +298,7 @@ RendererStack::mousePressEvent(QMouseEvent *event)
     isMouseDown |= 1;
     if (guestToolsPointer()) {
         mouse_set_buttons_ex(mouse_get_buttons_ex() | event->button());
+        guestToolsHeld |= event->button();
         event->accept();
         return;
     }

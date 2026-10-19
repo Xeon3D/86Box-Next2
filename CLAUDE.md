@@ -306,13 +306,16 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   86BOXGT.EXE, a 1.44 MB floppy image and an ISO): `windows/gtagent.c`, one Win32 exe for
   Windows 95 / NT 4.0 and later, no C runtime (KERNEL32/USER32/ADVAPI32/SHELL32/WINMM only,
   subsystem 4.0), tray icon, `/install` (copies itself to the Windows directory + Run key) /
-  `/uninstall` / `/quiet`; stops following when a program confines the pointer (ClipCursor).
+  `/uninstall` / `/quiet`; stops following when a program confines the pointer (ClipCursor) --
+  but not for a clip that came only after the primary button went down: Windows' move/size loop
+  clips the cursor while a window is dragged (both agents; the UI also releases a button pressed
+  under Guest Tools the Guest Tools way, `guestToolsHeld`, so a release never captures).
   Tools > "Install 86Box Guest Tools..." (`GuestTools::insertMedia()`): the images are built in
   (`src/qt/guesttools.qrc` from `guest-tools/images/`, committed: build.sh writes them with fixed
   dates/serial so they only change with the tools; Q_INIT_RESOURCE is needed -- `ui` is a static
   library), written to `<global data dir>/guest-tools/86box-guest-tools-<md5 prefix>.iso|img`
-  and mounted in the first CD-ROM drive (else the first floppy, write-protected); off tools get
-  turned on first (hard reset, as Settings does). The CD carries AUTORUN.INF (open=86BOXGT.EXE).
+  and mounted in the first CD-ROM drive (else the first floppy, write-protected); with the tools
+  off it only says to turn them on in Settings first. The CD carries AUTORUN.INF (open=86BOXGT.EXE).
   Installing from a disk: the Win32 agent stops a running agent and waits for its process, clears
   the read-only bit a CD copy carries, copies, then starts the installed copy and exits; GTWIN keeps
   running itself (Windows 3.x would take the installed copy for a second instance of the disk's

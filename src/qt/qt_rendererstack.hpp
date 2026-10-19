@@ -158,6 +158,7 @@ private:
 
     int currentBuf      = 0;
     int isMouseDown     = 0;
+    int guestToolsHeld  = 0; /* buttons pressed while Guest Tools had the pointer */
     int m_monitor_index = 0;
 
     std::vector<std::tuple<uint8_t *, std::atomic_flag *>> imagebufs;

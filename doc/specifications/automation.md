@@ -35,8 +35,13 @@ token:
 - A client's first line must be `auth <token>`. Anything else, or a wrong
   token, gets `{"ok":false,"error":"authentication required"}` and the
   connection is closed. The comparison is constant-time, and the log shows
-  only the first 8 characters of the token. Authentication can't be turned
-  off.
+  only the first 8 characters of the token.
+- `--automation-insecure` turns the token off, for convenience on a machine
+  you trust, as with the GDB stub. TCP clients are then accepted without
+  one, no token file is written, and an `auth` line from a client that sends
+  one anyway gets `{"ok":true,"auth":true}`. Any local process can then
+  control the machine, and with `--automation-allow-remote` anyone who can
+  reach the port. It has no effect on a UNIX socket.
 - 86Box refuses to listen on a non-loopback address unless you also pass
   `--automation-allow-remote`, and then logs a warning. Think hard before
   using it. The protocol is unencrypted, and anyone who can reach the port
@@ -84,7 +89,8 @@ Numbers accept C syntax (`0x` hex, decimal).
 
 `wait`, `memr` and `text` read memory through the normal physical memory map,
 so a read in a memory-mapped device range may have side effects (for example,
-VGA latches).
+VGA latches). They don't cost the emulated CPU time, though: a device's wait
+states are not charged for reads and writes made for a client.
 
 Try it by hand:
 
@@ -102,6 +108,13 @@ Over TCP, send the token first:
 $ 86Box --automation tcp:7086 --automation-token-file /tmp/86box.token &
 $ (echo "auth $(cat /tmp/86box.token)"; echo status) | socat - TCP:127.0.0.1:7086
 ```
+
+## Warnings
+
+With automation on, 86Box writes warnings (such as a media image that can't
+be loaded) to its log and carries on, without the warning dialog it otherwise
+shows. A client with no window couldn't dismiss it, and the machine and the
+socket would be stuck until someone did.
 
 ## When 86Box stops
 

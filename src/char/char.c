@@ -78,6 +78,9 @@ static const struct {
     { &char_modem_supra_com_device },
     { &char_modem_elsa_com_device },
     { &char_modem_hayes_com_device },
+#ifdef USE_AUTOMATION
+    { &char_automation_com_device },
+#endif
 
     { 0 }
     // clang-format on

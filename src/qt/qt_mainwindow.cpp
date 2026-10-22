@@ -798,6 +798,12 @@ MainWindow::MainWindow(QWidget *parent)
         case FULLSCR_SCALE_INT43:
             ui->actionFullScreen_int43->setChecked(true);
             break;
+        case FULLSCR_SCALE_CENTER:
+            ui->actionFullScreen_center->setChecked(true);
+            break;
+        case FULLSCR_SCALE_CENTER43:
+            ui->actionFullScreen_center43->setChecked(true);
+            break;
     }
 
     actGroup = new QActionGroup(this);
@@ -834,6 +840,8 @@ MainWindow::MainWindow(QWidget *parent)
     actGroup->addAction(ui->actionFullScreen_keepRatio);
     actGroup->addAction(ui->actionFullScreen_int);
     actGroup->addAction(ui->actionFullScreen_int43);
+    actGroup->addAction(ui->actionFullScreen_center);
+    actGroup->addAction(ui->actionFullScreen_center43);
     switch (video_gl_input_scale_mode) {
         default:
             break;
@@ -1224,6 +1232,8 @@ MainWindow::initRendererMonitorSlot(int monitor_index)
             this->renderers[monitor_index]->show();
         });
         secondaryRenderer->setWindowFlags(Qt::CustomizeWindowHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
+        /* Without a maximize button, Windows maximizes the window over the taskbar. */
+        secondaryRenderer->setWindowFlag(Qt::WindowMaximizeButtonHint, vid_resize == 1);
         secondaryRenderer->setWindowTitle(QObject::tr("86Box-Next Monitor #%1").arg(monitor_index + 1));
         secondaryRenderer->setContextMenuPolicy(Qt::PreventContextMenu);
 
@@ -2210,6 +2220,8 @@ update_fullscreen_scale_checkboxes(Ui::MainWindow *ui, QAction *selected)
     ui->actionFullScreen_keepRatio->setChecked(selected == ui->actionFullScreen_keepRatio);
     ui->actionFullScreen_int->setChecked(selected == ui->actionFullScreen_int);
     ui->actionFullScreen_int43->setChecked(selected == ui->actionFullScreen_int43);
+    ui->actionFullScreen_center->setChecked(selected == ui->actionFullScreen_center);
+    ui->actionFullScreen_center43->setChecked(selected == ui->actionFullScreen_center43);
 
     {
         auto widget = ui->stackedWidget->currentWidget();
@@ -2259,6 +2271,20 @@ MainWindow::on_actionFullScreen_int43_triggered()
 {
     video_fullscreen_scale = FULLSCR_SCALE_INT43;
     update_fullscreen_scale_checkboxes(ui, ui->actionFullScreen_int43);
+}
+
+void
+MainWindow::on_actionFullScreen_center_triggered()
+{
+    video_fullscreen_scale = FULLSCR_SCALE_CENTER;
+    update_fullscreen_scale_checkboxes(ui, ui->actionFullScreen_center);
+}
+
+void
+MainWindow::on_actionFullScreen_center43_triggered()
+{
+    video_fullscreen_scale = FULLSCR_SCALE_CENTER43;
+    update_fullscreen_scale_checkboxes(ui, ui->actionFullScreen_center43);
 }
 
 void
@@ -2615,6 +2641,13 @@ MainWindow::changeEvent(QEvent *event)
         monitor_settings[0].mon_window_maximized = isMaximized();
         config_save();
     }
+    /* The renderer can get its resize event before the window reports being
+       maximized, so redo the stretch mode once the state is known. */
+    if (event->type() == QEvent::WindowStateChange) {
+        const auto widget = ui->stackedWidget->currentWidget();
+        if (widget)
+            ui->stackedWidget->onResize(widget->width(), widget->height());
+    }
 }
 
 void
@@ -2775,7 +2808,7 @@ void
 MainWindow::on_actionACPI_Shutdown_triggered()
 {
     if (acpi_enabled) {
-        acpi_pwrbut_pressed = 1;
+        acpi_pwrbut_press();
         return;
     }
 

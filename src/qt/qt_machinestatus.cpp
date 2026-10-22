@@ -758,11 +758,11 @@ MachineStatus::refreshIcons()
 
     /* Same for sound mute status. */
     if (d->sound)
-        d->sound->setPixmap((sound_muted || fast_forward) ? d->pixmaps.sound.disabled : d->pixmaps.sound.normal);
+        d->sound->setPixmapIfChanged((sound_muted || fast_forward) ? d->pixmaps.sound.disabled : d->pixmaps.sound.normal);
 
     if (d->dynarec) {
         d->dynarec->setVisible(cpu_use_dynarec);
-        d->dynarec->setPixmap(!is_dynarec_active() ? d->pixmaps.dynarec.disabled : d->pixmaps.dynarec.normal);
+        d->dynarec->setPixmapIfChanged(!is_dynarec_active() ? d->pixmaps.dynarec.disabled : d->pixmaps.dynarec.normal);
         d->dynarec->setToolTip(is_dynarec_active() ? tr("Dynamic recompiler is active") :
                                                      tr("Dynamic recompiler is inactive"));
     }
@@ -1332,7 +1332,7 @@ MachineStatus::refresh(QStatusBar *sbar)
     }
 
     d->sound = std::make_unique<ClickableLabel>();
-    d->sound->setPixmap((sound_muted || fast_forward) ? d->pixmaps.sound.disabled : d->pixmaps.sound.normal);
+    d->sound->setPixmapIfChanged((sound_muted || fast_forward) ? d->pixmaps.sound.disabled : d->pixmaps.sound.normal);
 
     connect(d->sound.get(), &ClickableLabel::clicked, this, [this](QPoint pos) {
         this->soundMenu->popup(pos - QPoint(0, this->soundMenu->sizeHint().height()));
@@ -1342,7 +1342,7 @@ MachineStatus::refresh(QStatusBar *sbar)
     groups["sound"].append(d->sound.get());
 
     d->dynarec = std::make_unique<ClickableLabel>();
-    d->dynarec->setPixmap(!is_dynarec_active() ? d->pixmaps.dynarec.disabled : d->pixmaps.dynarec.normal);
+    d->dynarec->setPixmapIfChanged(!is_dynarec_active() ? d->pixmaps.dynarec.disabled : d->pixmaps.dynarec.normal);
     d->dynarec->setToolTip(is_dynarec_active() ? tr("Dynamic recompiler is active") :
                                                  tr("Dynamic recompiler is inactive"));
     d->dynarec->setVisible(cpu_use_dynarec);
@@ -1370,7 +1370,7 @@ void
 MachineStatus::updateSoundIcon()
 {
     if (d->sound)
-        d->sound->setPixmap((sound_muted || fast_forward) ? d->pixmaps.sound.disabled : d->pixmaps.sound.normal);
+        d->sound->setPixmapIfChanged((sound_muted || fast_forward) ? d->pixmaps.sound.disabled : d->pixmaps.sound.normal);
 }
 
 void

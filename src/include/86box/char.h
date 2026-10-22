@@ -164,5 +164,8 @@ extern const device_t char_fujinet_com_device;
 extern const device_t char_modem_supra_com_device;
 extern const device_t char_modem_elsa_com_device;
 extern const device_t char_modem_hayes_com_device;
+#ifdef USE_AUTOMATION
+extern const device_t char_automation_com_device;
+#endif
 
 #endif /*EMU_CHAR_H*/

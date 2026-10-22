@@ -592,6 +592,7 @@ load_machine(void)
 
     cpu_override             = ini_section_get_int(cat, "cpu_override", 0);
     cpu_override_interpreter = ini_section_get_int(cat, "cpu_override_interpreter", 0);
+    cpu_debug_regs_486       = !!ini_section_get_int(cat, "cpu_debug_regs_486", 0);
     cpu_f                    = NULL;
     p                        = ini_section_get_string(cat, "cpu_family", NULL);
     if (p) {
@@ -804,6 +805,7 @@ load_video(void)
         ini_section_delete_var(cat, "da2");
 
     voodoo_enabled                   = !!ini_section_get_int(cat, "voodoo", 0);
+    powervr_enabled                  = !!ini_section_get_int(cat, "powervr", 0);
     ibm8514_standalone_enabled       = !!ini_section_get_int(cat, "8514a", 0);
     ibm8514_active                   = ibm8514_standalone_enabled;
     xga_standalone_enabled           = !!ini_section_get_int(cat, "xga", 0);
@@ -1634,6 +1636,8 @@ load_storage_controllers(void)
     p = ini_section_get_string(cat, "cdrom_interface", NULL);
     if (p != NULL)
         cdrom_interface_current = config_known(cdrom_interface_get_from_internal_name(p), STRING_UNSUPPORTED_CDROM_INTERFACE, p);
+
+    ide_turbo = !!ini_section_get_int(cat, "ide_turbo", 0);
 
     /* The floppy tape is configured from the Tape drives tab now; the old
        keys are stale and get cleaned up. */
@@ -3062,6 +3066,7 @@ config_load(void)
         force_constant_mouse = 0;
 
         cpu_override_interpreter = 0;
+        cpu_debug_regs_486       = 0;
 
         fpu_type               = fpu_get_type(cpu_f, cpu, "none");
         gfxcard[0]             = video_get_video_from_internal_name("cga");
@@ -3119,6 +3124,8 @@ config_load(void)
         cassette_append       = 0;
         cassette_pcm          = 0;
         cassette_ui_writeprot = 0;
+
+        ide_turbo = 0;
 
         cpu_dyn_accurate_fpu_env = 0;
         cpu_dyn_block_link       = 1;
@@ -3570,6 +3577,10 @@ save_machine(void)
         ini_section_set_int(cat, "cpu_override_interpreter", cpu_override_interpreter);
     else
         ini_section_delete_var(cat, "cpu_override_interpreter");
+    if (cpu_debug_regs_486)
+        ini_section_set_int(cat, "cpu_debug_regs_486", cpu_debug_regs_486);
+    else
+        ini_section_delete_var(cat, "cpu_debug_regs_486");
 
     /* Downgrade compatibility with the previous CPU model system. */
     ini_section_delete_var(cat, "cpu_manufacturer");
@@ -3665,6 +3676,11 @@ save_video(void)
         ini_section_set_int(cat, "vid_cga_comp_saturation", vid_cga_comp_saturation);
     else
         ini_section_delete_var(cat, "vid_cga_comp_saturation");
+
+    if (powervr_enabled == 0)
+        ini_section_delete_var(cat, "powervr");
+    else
+        ini_section_set_int(cat, "powervr", powervr_enabled);
 
     if (voodoo_enabled == 0)
         ini_section_delete_var(cat, "voodoo");
@@ -4198,6 +4214,11 @@ save_storage_controllers(void)
     else
         ini_section_set_string(cat, "cdrom_interface",
                                cdrom_interface_get_internal_name(cdrom_interface_current));
+
+    if (ide_turbo == 0)
+        ini_section_delete_var(cat, "ide_turbo");
+    else
+        ini_section_set_int(cat, "ide_turbo", ide_turbo);
 
     /* The floppy tape is configured from the Tape drives tab now. */
     ini_section_delete_var(cat, "floppy_tape_enabled");

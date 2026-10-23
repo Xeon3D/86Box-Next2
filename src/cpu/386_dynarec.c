@@ -46,6 +46,7 @@
 
 #include "386_common.h"
 #include <86box/debug_cmd.h>
+#include "x86_interrupt.h"
 
 #if defined(__APPLE__) && defined(__aarch64__)
 #    include <pthread.h>
@@ -541,9 +542,9 @@ exec386_dynarec_int_common(const int dbg)
             CPU_BLOCK_END();
         else if (trap)
             CPU_BLOCK_END();
-        else if (nmi && nmi_enable && nmi_mask)
+        else if (NMI_TAKEABLE())
             CPU_BLOCK_END();
-        else if ((cpu_state.flags & I_FLAG) && pic.int_pending && !cpu_end_block_after_ins)
+        else if ((cpu_state.flags & I_FLAG) && x86_external_interrupt_pending() && !cpu_end_block_after_ins)
             CPU_BLOCK_END();
     }
 
@@ -819,9 +820,9 @@ exec386_dynarec_dyn(void)
                 CPU_BLOCK_END();
             if (smi_line)
                 CPU_BLOCK_END();
-            if (nmi && nmi_enable && nmi_mask)
+            if (NMI_TAKEABLE())
                 CPU_BLOCK_END();
-            if ((cpu_state.flags & I_FLAG) && pic.int_pending && !cpu_end_block_after_ins)
+            if ((cpu_state.flags & I_FLAG) && x86_external_interrupt_pending() && !cpu_end_block_after_ins)
                 CPU_BLOCK_END();
 
             if (cpu_end_block_after_ins) {
@@ -942,9 +943,9 @@ exec386_dynarec_dyn(void)
                 CPU_BLOCK_END();
             if (smi_line)
                 CPU_BLOCK_END();
-            if (nmi && nmi_enable && nmi_mask)
+            if (NMI_TAKEABLE())
                 CPU_BLOCK_END();
-            if ((cpu_state.flags & I_FLAG) && pic.int_pending && !cpu_end_block_after_ins)
+            if ((cpu_state.flags & I_FLAG) && x86_external_interrupt_pending() && !cpu_end_block_after_ins)
                 CPU_BLOCK_END();
 
             if (cpu_end_block_after_ins) {
@@ -1083,7 +1084,7 @@ exec386_dynarec_common(int32_t cycs, const int dbg)
                 enter_smm_check(0);
                 if (in_smm != before)
                     cpu_halted = 0;
-            } else if (nmi && nmi_enable && nmi_mask) {
+            } else if (NMI_TAKEABLE()) {
                 /* Out of a HLT that left pc on itself: "the saved CS:IP (or
                    CS:EIP) value points to the instruction following the HLT
                    instruction" (Pentium Vol. 3, HLT), NMI included. */
@@ -1102,8 +1103,8 @@ exec386_dynarec_common(int32_t cycs, const int dbg)
 #    else
                 nmi = 0;
 #    endif
-            } else if ((cpu_state.flags & I_FLAG) && pic.int_pending) {
-                vector = picinterrupt();
+            } else if ((cpu_state.flags & I_FLAG) && x86_external_interrupt_pending()) {
+                vector = x86_external_interrupt_vector();
                 if (vector != -1) {
                     /* An interrupt that came after the HLT looked: past the
                        HLT, as above. */
@@ -1514,7 +1515,7 @@ block_ended:
 
             if (smi_line)
                 enter_smm_check(0);
-            else if (nmi && nmi_enable && nmi_mask) {
+            else if (NMI_TAKEABLE()) {
                 oldcs = CS;
                 cpu_state.oldpc = cpu_state.pc;
                 x86_int(2);
@@ -1527,8 +1528,8 @@ block_ended:
 #else
                 nmi = 0;
 #endif
-            } else if ((cpu_state.flags & I_FLAG) && pic.int_pending && !cpu_end_block_after_ins) {
-                vector = picinterrupt();
+            } else if ((cpu_state.flags & I_FLAG) && x86_external_interrupt_pending() && !cpu_end_block_after_ins) {
+                vector = x86_external_interrupt_vector();
                 if (vector != -1) {
                     flags_rebuild();
                     if (msw & 1)

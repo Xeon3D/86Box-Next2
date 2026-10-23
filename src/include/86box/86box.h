@@ -20,6 +20,8 @@
 #ifndef EMU_86BOX_H
 #define EMU_86BOX_H
 
+#include <stdio.h>
+
 #if defined(__NetBSD__) || defined(__OpenBSD__)
 /* Doesn't compile on NetBSD/OpenBSD without this include */
 #include <stdarg.h>
@@ -224,6 +226,7 @@ extern int      cpu_use_dynarec;            /* (C) cpu uses/needs Dyna */
 extern int      fpu_type;                   /* (C) fpu type */
 extern int      fpu_softfloat;              /* (C) fpu uses softfloat */
 extern int      time_sync;                  /* (C) enable time sync */
+extern int      time_offset_years;          /* (C) year offset for time sync */
 extern int      hdd_format_type;            /* (C) hard disk file format */
 extern int      confirm_reset;              /* (G) enable reset confirmation */
 extern int      confirm_exit;               /* (G) enable exit confirmation */

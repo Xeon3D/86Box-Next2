@@ -29,11 +29,11 @@ extern "C" {
 
 #include "qt_settings_completer.hpp"
 #include "qt_preferences.hpp"
-#include "ui_qt_preferences.h"
 #include "qt_mainwindow.hpp"
 #include "ui_qt_mainwindow.h"
 #include "qt_machinestatus.hpp"
 
+#include <QStackedWidget>
 #include <QStandardItemModel>
 
 #include <QDialog>
@@ -67,59 +67,15 @@ extern "C" {
 
 extern MainWindow *main_window;
 
-class PreferencesModel : public QAbstractListModel {
-public:
-    PreferencesModel(QObject *parent)
-        : QAbstractListModel(parent)
-    {
-        fontHeight = QFontMetrics(qApp->font()).height();
-    }
-
-    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-    int      rowCount(const QModelIndex &parent = QModelIndex()) const override;
-
-private:
-    QStringList pages = {
-        "Emulator",
-        "Input",
-        "Key bindings",
-        "Status bar",
-    };
-    QStringList page_icons = {
-        "emulator",
-        "input_devices",
-        "key_bindings",
-        "floppy_and_cdrom_drives",
-    };
-    int fontHeight;
+static const QVector<PagedDialog::Page> preferencesPages = {
+    { "Emulator",     "emulator"                },
+    { "Input",        "input_devices"           },
+    { "Key bindings", "key_bindings"            },
+    { "Status bar",   "floppy_and_cdrom_drives" },
 };
 
-QVariant
-PreferencesModel::data(const QModelIndex &index, int role) const
-{
-    Q_ASSERT(checkIndex(index, QAbstractItemModel::CheckIndexOption::IndexIsValid | QAbstractItemModel::CheckIndexOption::ParentIsInvalid));
-
-    switch (role) {
-        case Qt::DisplayRole:
-            return tr(pages.at(index.row()).toUtf8().data());
-        case Qt::DecorationRole:
-            return QIcon(QString(":/settings/qt/icons/%1.ico").arg(page_icons[index.row()]));
-        case Qt::SizeHintRole:
-            return QSize(-1, fontHeight * 2);
-        default:
-            return {};
-    }
-}
-
-int
-PreferencesModel::rowCount(const QModelIndex &parent) const
-{
-    (void) parent;
-    return pages.size();
-}
-
 Preferences *Preferences::preferences = nullptr;
-;
+
 Preferences::CustomTranslator *Preferences::translator   = nullptr;
 QTranslator                   *Preferences::qtTranslator = nullptr;
 
@@ -158,39 +114,25 @@ QVector<QPair<QString, QString>> Preferences::languages = {
 };
 
 Preferences::Preferences(QWidget *parent)
-    : QDialog(parent)
-    , ui(new Ui::Preferences)
+    : PagedDialog(tr("Preferences"), QSize(600, 0), preferencesPages, parent)
 {
-    ui->setupUi(this);
-    auto *model = new PreferencesModel(this);
-    ui->listView->setModel(model);
-
     emulator                  = new PreferencesEmulator(this);
     input                     = new PreferencesInput(this);
     key_bindings              = new PreferencesKeyBindings(this);
     status_bar                = new PreferencesStatusBar(this);
 
-    ui->stackedWidget->addWidget(emulator);
-    ui->stackedWidget->addWidget(input);
-    ui->stackedWidget->addWidget(key_bindings);
-    ui->stackedWidget->addWidget(status_bar);
+    pageStack()->addWidget(emulator);
+    pageStack()->addWidget(input);
+    pageStack()->addWidget(key_bindings);
+    pageStack()->addWidget(status_bar);
 
-    connect(ui->listView->selectionModel(), &QItemSelectionModel::currentChanged, this,
-            [this](const QModelIndex &current, const QModelIndex &previous) {
-                ui->stackedWidget->setCurrentIndex(current.row());
-                ui->headerIcon->setPixmap(qvariant_cast<QIcon>(ui->listView->model()->data(current, Qt::DecorationRole)).pixmap(QSize(16, 16)));
-                ui->headerLabel->setText(ui->listView->model()->data(current, Qt::DisplayRole).toString());
-            });
-
-    ui->listView->setCurrentIndex(model->index(0, 0));
+    showFirstPage();
 
     Preferences::preferences = this;
 }
 
 Preferences::~Preferences()
 {
-    delete ui;
-
     Preferences::preferences = nullptr;
 }
 

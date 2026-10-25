@@ -683,6 +683,7 @@ load_machine(void)
         time_sync = TIME_SYNC_ENABLED;
 
     time_offset_years = ini_section_get_int(cat, "time_offset_years", 0);
+    time_fixed_year   = ini_section_get_int(cat, "time_fixed_year", 0);
 
     pit_mode = ini_section_get_int(cat, "pit_mode", -1);
 
@@ -3621,6 +3622,11 @@ save_machine(void)
         ini_section_set_int(cat, "time_offset_years", time_offset_years);
     else
         ini_section_delete_var(cat, "time_offset_years");
+
+    if (time_fixed_year != 0)
+        ini_section_set_int(cat, "time_fixed_year", time_fixed_year);
+    else
+        ini_section_delete_var(cat, "time_fixed_year");
 
     if (pit_mode == -1)
         ini_section_delete_var(cat, "pit_mode");

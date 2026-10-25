@@ -49,6 +49,7 @@ private slots:
 private:
     void updateGuestYearLabel();
     void updateYearsOffsetEnabled();
+    void selectedYear(int *offset, int *fixed) const;
     Ui::SettingsMachine *ui;
 
     int                  machine_cfg_changed;

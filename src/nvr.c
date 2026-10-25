@@ -63,6 +63,7 @@ int nvr_dosave; /* NVR is dirty, needs saved */
 static int8_t    days_in_month[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 static struct tm intclk;
 static nvr_t    *saved_nvr = NULL;
+static int       fixed_year_host = 0; /* host year a fixed year counts from */
 
 #ifdef ENABLE_NVR_LOG
 int nvr_do_log = ENABLE_NVR_LOG;
@@ -169,6 +170,7 @@ nvr_init(nvr_t *nvr)
 
     /* Initialize the internal clock as needed. */
     memset(&intclk, 0x00, sizeof(intclk));
+    fixed_year_host = 0;
     if (time_sync & TIME_SYNC_ENABLED) {
         nvr_time_sync();
     } else {
@@ -314,6 +316,7 @@ nvr_time_sync(void)
 {
     struct tm tm;
     time_t    now;
+    int       offset;
 
     /* Get the current time of day, and convert to local time. */
     (void) time(&now);
@@ -330,11 +333,20 @@ nvr_time_sync(void)
         localtime_r(&now, &tm);
 #endif
 
-    /* Apply configured year offset.  Feb 29 is clamped to Feb 28 when
-       the target year is not a leap year. */
-    if (time_offset_years != 0) {
-        int target_year = (tm.tm_year + 1900) + time_offset_years;
-        tm.tm_year += time_offset_years;
+    /* Apply the configured fixed year or year offset. A fixed year is the
+       guest's year when the machine starts; a later sync (after a pause)
+       keeps the clock running from there, so a New Year's Eve session still
+       rolls over. Feb 29 is clamped to Feb 28 when the target year is not
+       a leap year. */
+    if (time_fixed_year != 0) {
+        if (fixed_year_host == 0)
+            fixed_year_host = tm.tm_year + 1900;
+        offset = time_fixed_year - fixed_year_host;
+    } else
+        offset = time_offset_years;
+    if (offset != 0) {
+        int target_year = (tm.tm_year + 1900) + offset;
+        tm.tm_year += offset;
         if (tm.tm_mon == 1 && tm.tm_mday == 29 && !nvr_is_leap(target_year))
             tm.tm_mday = 28;
     }

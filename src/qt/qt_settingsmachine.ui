@@ -140,128 +140,6 @@
          </layout>
         </widget>
        </item>
- 
-       <item>
-        <layout class="QHBoxLayout" name="groupBoxesLayout">
-         <item>
-          <layout class="QVBoxLayout" name="verticalLayoutTimeSync">
-           <item>
-            <widget class="QGroupBox" name="groupBoxTimeSync">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="title">
-              <string>Time synchronization</string>
-             </property>
-             <layout class="QVBoxLayout" name="groupBoxTimeSyncLayout">
-              <item>
-               <widget class="QRadioButton" name="radioButtonDisabled">
-                <property name="text">
-                 <string>Disabled</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QRadioButton" name="radioButtonLocalTime">
-                <property name="text">
-                 <string>Enabled (local time)</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QRadioButton" name="radioButtonUTC">
-                <property name="text">
-                 <string>Enabled (UTC)</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <layout class="QHBoxLayout" name="horizontalLayoutYearsOffset">
-                <item>
-                 <widget class="QLabel" name="labelYearsOffset">
-                  <property name="text">
-                   <string>Years offset:</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QSpinBox" name="spinBoxYearsOffset">
-                  <property name="minimum">
-                   <number>-100</number>
-                  </property>
-                  <!-- Actual min/max set at runtime so guest year is 1980..2099 -->
-                  <property name="maximum">
-                   <number>100</number>
-                  </property>
-                  <property name="value">
-                   <number>0</number>
-                  </property>
-                  <property name="accelerated">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="labelGuestYear">
-                  <property name="text">
-                   <string>(guest: %1)</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <spacer name="horizontalSpacerYearsOffset">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>40</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-               </layout>
-              </item>
-             </layout>
-            </widget>
-           </item>
-           <item>
-            <spacer name="timeSyncVerticalSpacer">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-              <property name="sizeType">
-              <enum>QSizePolicy::Expanding</enum>
-             </property>
-              <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>40</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <spacer name="groupBoxesHorizontalSpacer">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-        </layout>
-       </item>
 
        <item row="2" column="1">
         <spacer name="verticalSpacerMachine">
@@ -715,6 +593,147 @@
        </item>
       </layout>
      </widget>
+     <widget class="QWidget" name="tabTimeDate">
+      <attribute name="icon">
+       <iconset resource="../qt_resources.qrc">
+        <normaloff>:/settings/qt/icons/time_date.ico</normaloff>:/settings/qt/icons/time_date.ico</iconset>
+      </attribute>
+      <attribute name="title">
+       <string>Time &amp;&amp; Date</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayoutTimeDate">
+       <item>
+        <widget class="QGroupBox" name="groupBoxTimeSync">
+         <property name="title">
+          <string>Time synchronization</string>
+         </property>
+         <layout class="QVBoxLayout" name="groupBoxTimeSyncLayout">
+              <item>
+               <widget class="QRadioButton" name="radioButtonDisabled">
+                <property name="text">
+                 <string>Disabled</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QRadioButton" name="radioButtonLocalTime">
+                <property name="text">
+                 <string>Enabled (local time)</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QRadioButton" name="radioButtonUTC">
+                <property name="text">
+                 <string>Enabled (UTC)</string>
+                </property>
+               </widget>
+              </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="groupBoxGuestYear">
+         <property name="title">
+          <string>Year reported to the guest</string>
+         </property>
+         <layout class="QGridLayout" name="groupBoxGuestYearLayout">
+          <item row="0" column="0" colspan="3">
+           <widget class="QRadioButton" name="radioButtonYearHost">
+            <property name="text">
+             <string>Same as the host</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QRadioButton" name="radioButtonYearOffset">
+            <property name="text">
+             <string>Years offset:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="spinBoxYearsOffset">
+            <property name="minimum">
+             <number>-100</number>
+            </property>
+            <!-- Actual min/max set at runtime so guest year is 1980..2099 -->
+            <property name="maximum">
+             <number>100</number>
+            </property>
+            <property name="accelerated">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QLabel" name="labelGuestYear">
+            <property name="text">
+             <string>(guest: %1)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QRadioButton" name="radioButtonYearFixed">
+            <property name="text">
+             <string>Fixed year:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QSpinBox" name="spinBoxFixedYear">
+            <property name="minimum">
+             <number>1980</number>
+            </property>
+            <property name="maximum">
+             <number>2099</number>
+            </property>
+            <property name="value">
+             <number>1999</number>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="3">
+           <spacer name="horizontalSpacerGuestYear">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item row="3" column="0" colspan="4">
+           <widget class="QLabel" name="labelGuestYearNote">
+            <property name="text">
+             <string>The guest's clock is set when the machine starts and keeps running from there.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacerTimeDate">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
     </widget>
    </item>
 
@@ -737,6 +756,11 @@
   <tabstop>radioButtonDisabled</tabstop>
   <tabstop>radioButtonLocalTime</tabstop>
   <tabstop>radioButtonUTC</tabstop>
+  <tabstop>radioButtonYearHost</tabstop>
+  <tabstop>radioButtonYearOffset</tabstop>
+  <tabstop>spinBoxYearsOffset</tabstop>
+  <tabstop>radioButtonYearFixed</tabstop>
+  <tabstop>spinBoxFixedYear</tabstop>
  </tabstops>
  <resources/>
  <connections/>

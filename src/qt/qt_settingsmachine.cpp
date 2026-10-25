@@ -150,6 +150,16 @@ SettingsMachine::SettingsMachine(QWidget *parent)
         const QSignalBlocker blocker(ui->spinBoxYearsOffset);
         ui->spinBoxYearsOffset->setValue(time_offset_years);
     }
+    ui->spinBoxFixedYear->setValue(time_fixed_year ? time_fixed_year : host_year);
+    if (time_fixed_year != 0)
+        ui->radioButtonYearFixed->setChecked(true);
+    else if (time_offset_years != 0)
+        ui->radioButtonYearOffset->setChecked(true);
+    else
+        ui->radioButtonYearHost->setChecked(true);
+    connect(ui->radioButtonYearHost, &QRadioButton::toggled, this, &SettingsMachine::updateYearsOffsetEnabled);
+    connect(ui->radioButtonYearOffset, &QRadioButton::toggled, this, &SettingsMachine::updateYearsOffsetEnabled);
+    connect(ui->radioButtonYearFixed, &QRadioButton::toggled, this, &SettingsMachine::updateYearsOffsetEnabled);
     updateYearsOffsetEnabled();
     updateGuestYearLabel();
 
@@ -230,10 +240,11 @@ SettingsMachine::changed()
         temp = TIME_SYNC_ENABLED | TIME_SYNC_UTC;
     has_changed |= (time_sync                  != temp);
     {
-        const int effective = years_offset_manipulated
-                                  ? ui->spinBoxYearsOffset->value()
-                                  : original_years_offset;
-        has_changed |= (time_offset_years != effective);
+        int offset;
+        int fixed;
+        selectedYear(&offset, &fixed);
+        has_changed |= (time_offset_years != offset);
+        has_changed |= (time_fixed_year != fixed);
     }
 
     return has_changed ? (SETTINGS_CHANGED | SETTINGS_REQUIRE_HARD_RESET) : 0;
@@ -299,8 +310,21 @@ SettingsMachine::save(int soft)
     if (ui->radioButtonUTC->isChecked())
         time_sync = TIME_SYNC_ENABLED | TIME_SYNC_UTC;
 
-    if (years_offset_manipulated)
-        time_offset_years = ui->spinBoxYearsOffset->value();
+    selectedYear(&time_offset_years, &time_fixed_year);
+}
+
+/* The year offset and fixed year the Time & Date tab asks for. An offset
+   from the configuration file outside the spinner's range is kept unless
+   the spinner was touched. */
+void
+SettingsMachine::selectedYear(int *offset, int *fixed) const
+{
+    *offset = 0;
+    *fixed  = 0;
+    if (ui->radioButtonYearOffset->isChecked())
+        *offset = years_offset_manipulated ? ui->spinBoxYearsOffset->value() : original_years_offset;
+    else if (ui->radioButtonYearFixed->isChecked())
+        *fixed = ui->spinBoxFixedYear->value();
 }
 
 void
@@ -579,10 +603,12 @@ SettingsMachine::updateGuestYearLabel()
 void
 SettingsMachine::updateYearsOffsetEnabled()
 {
+    /* The guest year only applies while the guest's clock follows the host's. */
     const bool enabled = !ui->radioButtonDisabled->isChecked();
-    ui->spinBoxYearsOffset->setEnabled(enabled);
-    ui->labelYearsOffset->setEnabled(enabled);
-    ui->labelGuestYear->setEnabled(enabled);
+    ui->groupBoxGuestYear->setEnabled(enabled);
+    ui->spinBoxYearsOffset->setEnabled(ui->radioButtonYearOffset->isChecked());
+    ui->labelGuestYear->setEnabled(ui->radioButtonYearOffset->isChecked());
+    ui->spinBoxFixedYear->setEnabled(ui->radioButtonYearFixed->isChecked());
 }
 
 void

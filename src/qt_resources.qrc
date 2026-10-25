@@ -50,6 +50,7 @@
         <file>qt/icons/other_removable_devices.ico</file>
         <file>qt/icons/parallel_ports.ico</file>
         <file>qt/icons/performance.ico</file>
+        <file>qt/icons/time_date.ico</file>
         <file>qt/icons/ports.ico</file>
         <file>qt/icons/processor.ico</file>
         <file>qt/icons/scsi_controllers.ico</file>

@@ -993,18 +993,21 @@ void nv3_svga_write(uint16_t addr, uint8_t val, UNUSED(void* priv))
 /* DFB, sets up a dumb framebuffer */
 uint8_t nv3_dfb_read8(uint32_t addr, UNUSED(void* priv))
 {
+    nv3_d3d_sync(NV3_SYNC_LFB);
     addr &= (nv3->nvbase.svga.vram_mask);
     return nv3->nvbase.svga.vram[addr];
 }
 
 uint16_t nv3_dfb_read16(uint32_t addr, UNUSED(void* priv))
 {
+    nv3_d3d_sync(NV3_SYNC_LFB);
     addr &= (nv3->nvbase.svga.vram_mask);
     return (nv3->nvbase.svga.vram[addr + 1] << 8) | nv3->nvbase.svga.vram[addr];
 }
 
 uint32_t nv3_dfb_read32(uint32_t addr, UNUSED(void* priv))
 {
+    nv3_d3d_sync(NV3_SYNC_LFB);
     addr &= (nv3->nvbase.svga.vram_mask);
     return (nv3->nvbase.svga.vram[addr + 3] << 24) | (nv3->nvbase.svga.vram[addr + 2] << 16) |
     (nv3->nvbase.svga.vram[addr + 1] << 8) | nv3->nvbase.svga.vram[addr];
@@ -1024,6 +1027,7 @@ void nv3_watch(uint32_t addr, uint32_t val, int size)
 
 void nv3_dfb_write8(uint32_t addr, uint8_t val, UNUSED(void* priv))
 {
+    nv3_d3d_sync(NV3_SYNC_LFB);
     addr &= (nv3->nvbase.svga.vram_mask);
     nv3_watch(addr, val, 8);
     nv3->nvbase.svga.vram[addr] = val;
@@ -1032,6 +1036,7 @@ void nv3_dfb_write8(uint32_t addr, uint8_t val, UNUSED(void* priv))
 
 void nv3_dfb_write16(uint32_t addr, uint16_t val, UNUSED(void* priv))
 {
+    nv3_d3d_sync(NV3_SYNC_LFB);
     addr &= (nv3->nvbase.svga.vram_mask);
     nv3_watch(addr, val, 16);
     nv3->nvbase.svga.vram[addr + 1] = (val >> 8) & 0xFF;
@@ -1041,6 +1046,7 @@ void nv3_dfb_write16(uint32_t addr, uint16_t val, UNUSED(void* priv))
 
 void nv3_dfb_write32(uint32_t addr, uint32_t val, UNUSED(void* priv))
 {
+    nv3_d3d_sync(NV3_SYNC_LFB);
     addr &= (nv3->nvbase.svga.vram_mask);
     nv3_watch(addr, val, 32);
     nv3->nvbase.svga.vram[addr + 3] = (val >> 24) & 0xFF;
@@ -1148,8 +1154,49 @@ void nv3_init_mappings_mmio(void)
 
 }
 
+/* The VGA window at A0000 goes through the SVGA core: the 3D batch is drawn (and waited for)
+   before any access, as for the linear framebuffer */
+static uint8_t nv3_vga_read(uint32_t addr, void* priv)
+{
+    nv3_d3d_sync(NV3_SYNC_VGA);
+    return svga_read(addr, priv);
+}
+
+static uint16_t nv3_vga_readw(uint32_t addr, void* priv)
+{
+    nv3_d3d_sync(NV3_SYNC_VGA);
+    return svga_readw(addr, priv);
+}
+
+static uint32_t nv3_vga_readl(uint32_t addr, void* priv)
+{
+    nv3_d3d_sync(NV3_SYNC_VGA);
+    return svga_readl(addr, priv);
+}
+
+static void nv3_vga_write(uint32_t addr, uint8_t val, void* priv)
+{
+    nv3_d3d_sync(NV3_SYNC_VGA);
+    svga_write(addr, val, priv);
+}
+
+static void nv3_vga_writew(uint32_t addr, uint16_t val, void* priv)
+{
+    nv3_d3d_sync(NV3_SYNC_VGA);
+    svga_writew(addr, val, priv);
+}
+
+static void nv3_vga_writel(uint32_t addr, uint32_t val, void* priv)
+{
+    nv3_d3d_sync(NV3_SYNC_VGA);
+    svga_writel(addr, val, priv);
+}
+
 void nv3_init_mappings_svga(void)
 {
+    mem_mapping_set_handler(&nv3->nvbase.svga.mapping, nv3_vga_read, nv3_vga_readw, nv3_vga_readl,
+                            nv3_vga_write, nv3_vga_writew, nv3_vga_writel);
+
     nv_log("Initialising SVGA core memory mapping\n");
     // setup the svga mappings
     mem_mapping_add(&nv3->nvbase.framebuffer_mapping, 0, 0,
@@ -1314,6 +1361,8 @@ static void nv3_debug_save(const char *path_in)
     svga_t *svga = &nv3->nvbase.svga;
     char    path[512];
     FILE   *f;
+
+    nv3_d3d_sync(NV3_SYNC_OTHER);
 
     snprintf(path, sizeof(path), "%s", path_in);
     if ((f = fopen(path, "wb"))) {
@@ -1515,6 +1564,12 @@ static void nv3_debug_hook(const char *args)
         extern uint32_t nv3_notify_trace_left;
         nv3_notify_trace_left = strtoul(notify_arg + 7, NULL, 0);
     }
+    /* "dev nv3 3d": the 3D batch's flushes, spans, host shading time and GPU waits */
+    for (const char *p = args ? strstr(args, "3d") : NULL; p; p = strstr(p + 1, "3d"))
+        if (((p == args) || (p[-1] == ' ')) && ((p[2] == '\0') || (p[2] == ' ') || (p[2] == '\r') || (p[2] == '\n'))) {
+            nv3_d3d_stats();
+            return;
+        }
     /* "dev nv3 d3d <count>": log the next <count> D3D triangles */
     const char *d3d_arg = args ? strstr(args, "d3d ") : NULL;
     if (d3d_arg) {
@@ -1689,6 +1744,13 @@ void* nv3_init(UNUSED(const device_t *info))
     nv3_pgraph_init();              // Initialise accelerated graphics engine
     nv3_pvideo_init();              // Initialise video overlay
     timer_add(&nv3->dma_pusher_timer, nv3_pfifo_dma_pusher_timer, NULL, 0);
+    {
+        int gpu = device_get_config_int("gpu_raster");
+
+        if (getenv("NV3_GPU"))
+            gpu = atoi(getenv("NV3_GPU"));
+        nv3_d3d_init(device_get_config_int("render_threads"), gpu);
+    }
 
     nv_log("Initialising I2C...");
     nv3->nvbase.i2c = i2c_gpio_init("nv3_i2c");
@@ -1775,11 +1837,13 @@ static void nv3_reset(UNUSED(void* priv))
     nv3_pvideo_init();
 
     nv3_pmc_clear_interrupts();
+    nv3_d3d_reset();
 }
 
 void nv3_close(UNUSED(void* priv))
 {
     debug_cmd_set_device_hook(NULL);
+    nv3_d3d_close();
     // Shut down logging
     log_close(nv3->nvbase.log);
 //#ifdef ENABLE_NV_LOG

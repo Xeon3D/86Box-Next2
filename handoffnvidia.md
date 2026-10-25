@@ -1,7 +1,7 @@
 # Handoff: NVIDIA RIVA 128 (NV3) emulation
 
 Living document — whoever works on the NV3 updates it as they go.
-Last updated: 2026-10-09.
+Last updated: 2026-10-25.
 
 ## Where the work is
 - Branch `nv3`, worktree `F:\Claude\86Box-Next\wt-nv3` (keep using that worktree;
@@ -197,3 +197,29 @@ Open:
   release-2.1.3-10-g50e1703c5 staged in every rig but AVM-ISDN-RIG. Win95 note: a copy that was
   hard-stopped boots to safe mode, then shows "problem with your display settings" once -- a
   Windows state, not the emulator (release 2.1.3 and every commit since boot it fine afterwards).
+- 2026-10-25: 3D batched and threaded, with the RIVA TNT's Vulkan GPU lane (handoffnv4.md). The D3D
+  triangle (`render/nv3_render_d3d.c`) now queues draw states / triangles / spans
+  (`render/nv3_render_d3d.h`): setup on the emulation thread (the double-precision pixel test and
+  top-left rule kept; each row's run found from the edges and settled with that test), attributes
+  as float plane equations (coefficients computed in double), shading at flush. Options replace the
+  unused `pgraph_threads`: "Render threads" (1-8, default 2: rows y mod n, bit-exact with one) and
+  "Draw 3D on the host GPU (Vulkan)" (`gpu_raster`, off; `NV3_GPU=0/1` overrides).
+  `render/nv3_render_d3d_gpu.c` + `.comp` (SPIR-V in `nv/nv3_d3d_gpu_spv.h`,
+  `scripts/regen-nv3-gpu-spv.sh`): the NV4 lane's host side (two batches in flight, texture arena
+  keyed by page list + content hash), the kernel a port of `nv3_d3d_span` (precise, fdiv_cr, f2i;
+  the CPU file builds with -ffp-contract=off; the mip level is half the exponent of rho, from its
+  bits). Textures are read in place (`nv3_d3d_tex_ptr`: system memory pages resolved through the AGP
+  aperture when mapped, `tex_rpages`), never through the bus from a thread.
+  Sync points: a method of any class but the state-only ones (01-06, 0x1C) and 0x0C/0x17/0x18;
+  0x0C syncs itself -- its rectangles (A, B) only wait when their rows meet the batch or a batch in
+  flight (`nv3_d3d_touch_rect`), its bitmaps always; 0x18 points sync; notifies flush; the LFB, the
+  VGA window (wrapped svga handlers), the real-mode window and the debug VRAM save sync; vertical
+  blank flushes and waits only when the batch in flight draws into the displayed bytes.
+  `dev nv3 3d`: flushes, spans, host shading time, GPU waits by cause (class id).
+  `NV3_3D_VERIFY=1`: every parallel batch shaded twice. Results (RTX 2080 SUPER, private copy of
+  NVIDIA-RIG in F:/Claude/86Box-Next/work-nv3gpu): dxdiag D3D7/D3D8 right on 2 threads; 3DMark 99
+  verify with the GPU: 17000 batches identical to the CPU; async GPU run renders every test.
+  Emulation speed over 40 s of Game 1/2 (`tools/nv3/bench.sh`): 81% before the 0x0C change
+  (every batch waited for a GDI fill), 99% after (host shading 2.3 s); 2 CPU threads alone: 70%
+  (15.7 s shading). Full GPU run: 1447 3DMarks (guest time, as before). Left: class 0x07 rectangles still sync (~300 GPU
+  waits per 40 s, 50 ms); fills joining the batch as spans (NV4's `nv4_3d_fill`) not done.

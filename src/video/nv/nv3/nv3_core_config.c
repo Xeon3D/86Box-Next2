@@ -100,31 +100,27 @@ const device_config_t nv3_config[] =
         }
 
     },
-    // Multithreading configuration
     {
-        .name = "pgraph_threads",
-        .description = "Render threads (PFIFO/PGRAPH)", 
+        .name = "render_threads",
+        .description = "Render threads",
         .type = CONFIG_SELECTION,
-        .default_int = 1, // todo: change later
-        .selection = 
+        .default_int = 2,
+        .selection =
         {
-            {
-                .description = "1 thread (Only use if issues appear with more threads)",
-                .value = 1,
-            },
-            {
-                .description = "2 threads",
-                .value = 2,
-            },
-            {   
-                .description = "4 threads",
-                .value = 4,
-            },
-            {
-                .description = "8 threads",
-                .value = 8,
-            },
+            { .description = "1", .value = 1 },
+            { .description = "2", .value = 2 },
+            { .description = "3", .value = 3 },
+            { .description = "4", .value = 4 },
+            { .description = "6", .value = 6 },
+            { .description = "8", .value = 8 },
+            { .description = "" }
         },
+    },
+    {
+        .name = "gpu_raster",
+        .description = "Draw 3D on the host GPU (Vulkan)",
+        .type = CONFIG_BINARY,
+        .default_int = 0,
     },
 #ifndef RELEASE_BUILD
     {
@@ -210,32 +206,27 @@ const device_config_t nv3t_config[] =
            },
         }
     },
-    // Multithreading configuration
     {
-
-        .name = "pgraph_threads",
-        .description = "PFIFO/PGRAPH - Number of threads to split large object method execution into",
+        .name = "render_threads",
+        .description = "Render threads",
         .type = CONFIG_SELECTION,
-        .default_int = 1, // todo: change later
-        .selection = 
+        .default_int = 2,
+        .selection =
         {
-            {
-                .description = "1 thread (Only use if issues appear with more threads)",
-                .value = 1,
-            },
-            {
-                .description = "2 threads",
-                .value = 2,
-            },
-            {   
-                .description = "4 threads",
-                .value = 4,
-            },
-            {
-                .description = "8 threads",
-                .value = 8,
-            },
+            { .description = "1", .value = 1 },
+            { .description = "2", .value = 2 },
+            { .description = "3", .value = 3 },
+            { .description = "4", .value = 4 },
+            { .description = "6", .value = 6 },
+            { .description = "8", .value = 8 },
+            { .description = "" }
         },
+    },
+    {
+        .name = "gpu_raster",
+        .description = "Draw 3D on the host GPU (Vulkan)",
+        .type = CONFIG_BINARY,
+        .default_int = 0,
     },
 #ifndef RELEASE_BUILD
     {

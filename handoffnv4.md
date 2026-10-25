@@ -319,6 +319,10 @@ From Bash with MSYS2 UCRT64 first on PATH:
   - Aliasing rows (zero pitch, Z rows narrower than colour rows) are shaded
     serially.
 - **GPU lane** (`nv4_pgraph_3d_gpu.c` + `.comp`, Vulkan loaded at run time):
+  - The Vulkan setup (loading, device, buffers, pipeline, the slots' command
+    buffers, fences and timestamp pools) is `src/video/nv/nv_gpu_vk.c`,
+    shared with the RIVA 128's lane (2026-10-25); this file keeps the
+    records, texture cache, slot bookkeeping and shading.
   - The CPU span shader ported operation for operation. One invocation per
     pixel walks its row's spans in submission order (no barriers);
     workgroups are rows x 64 pixels.

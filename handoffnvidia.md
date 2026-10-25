@@ -233,4 +233,11 @@ Open:
   waits only if the batch or a batch in flight reaches its rows (`nv3_d3d_touch_rect`); class 0x07
   no longer syncs at method entry. Verify: 9000 GPU batches with fills identical to the CPU; speed
   run: no class waits left, GPU waits 0.65 s per 40 s (vertical blank), emulation speed 100%.
-  Left: the Vulkan setup is copied from nv4_pgraph_3d_gpu.c, not shared.
+- 2026-10-25: both NVIDIA GPU lanes share their Vulkan plumbing: `src/video/nv/nv_gpu_vk.c` +
+  `src/include/86box/nv/nv_gpu_vk.h` (run-time loading, `NV_GPU_FNS` table, instance/device with a
+  discrete GPU first, buffers, the 6-binding compute pipeline with an 8-byte push constant, the
+  slots' records, descriptor sets, command buffers, fences and optional timestamp pools). A lane
+  fills an `nv_gpu_vk_desc_t` (log tag, VRAM size, arena, record sizes, SPIR-V, queries) and keeps
+  its records, texture cache, slot bookkeeping and shading. Built only under the Vulkan header gate
+  (CMake adds it beside `NV3/NV4_GPU_HAVE_VULKAN`); the lanes' stubs build without it. Verified:
+  NV3_3D_VERIFY=1 7000 GPU batches, 0 differed; a normal GPU run renders 3DMark at 100% speed.

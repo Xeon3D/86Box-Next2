@@ -212,8 +212,21 @@ From Bash with MSYS2 UCRT64 first on PATH:
 - **Environment switches:**
   - `NV4_GPU=0/1` overrides the "Draw 3D on the host GPU" option.
   - `NV4_3D_VERIFY=1` shades every parallel batch twice and logs any byte that
-    differs ("nv4 3D verify: ..."). It is slow, since it copies the whole VRAM
-    3 times per flush.
+    differs ("nv4 3D verify: ..."). It compares the batch's regions (all the
+    threads or the GPU may write), and all of VRAM every 64th flush and for
+    batches whose rows alias; `NV4_3D_VERIFY=full` compares all of VRAM every
+    time (slow: three copies of VRAM per flush).
+  - `NV4_3D_RECORD=<dir>[,every[,max]]` writes every `every`-th flushed batch
+    (25; at most `max`, 100) to `<dir>/nv4-batch-NNNNNN.bin`: the batch, the
+    VRAM it reaches and its textures' bytes (format in `nv4_pgraph_3d.h`).
+    `NV4_3D_REPLAY_DIR=<dir> ctest -R NV4.Replay3D` shades each through the
+    CPU and the GPU lane and compares all of VRAM (files from a build with
+    other struct layouts are skipped). A corpus from 3DMark 99 is in
+    `F:\Claude\86Box-Next\nv4-replay`.
+  - `NV_GPU_TELEMETRY=1` (both NVIDIA lanes) also writes the lane's lines to
+    `nv-gpu-telemetry.log` in the VM folder: host, every Vulkan device, slots,
+    VRAM import, variant compile time, the `dev 3d` statistics and why batches
+    went to the CPU (`NV_GPU_FB_*`, by cause, also in `dev 3d`).
   - `NV4_GPU_PROFILE=N` logs the next N GPU batches one by one: spans,
     pixels, and GPU time for uploads, kernel and download.
   - `NV_GPU_SLOTS=1..8` batches in flight (both NVIDIA lanes; default 4),

@@ -802,7 +802,7 @@ NT4, the NV5 classes 0x64-0x66, Quake III/GLQuake/Quake II, DOS/VESA).
    on the desktop (`type mcm`, Enter).
 8. Classes (C10): ~~0x38 DVD subpicture~~ done (ec094b9f0; subpicture
    blend untested -- the drivers seen use it transparent), 0x48 DX3
-   triangle; 3D into a swizzled surface (A3) when something needs it.
+   triangle; ~~3D into a swizzled surface (A3)~~ done 2026-10-25, see A3.
 9. PME / TV encoders (C11): only if a BIOS or driver hangs on them.
 
 **Platforms, speed, docs**
@@ -855,12 +855,20 @@ took, and commit only your own paths.
    "nv4: not modeled: ..." once per case and `dev` lists the counts.
    First catch: 3DMark 2000's startup sets up a DVD subpicture object
    (0x38; context methods only so far).
-3. **Rendering into a swizzled 3D colour surface** (SURFACE type 2,
-   render to texture): implement when A2 shows a program using it
-   (3DMark 2000 and DX6/7 demos do). Rows in the swizzled layout break
-   the "row = base + y*pitch" region model: either shade such batches
-   serially on the CPU, or give regions a swizzled kind on both CPU and
-   GPU (bit-exact rules apply).
+3. ~~**Rendering into a swizzled 3D colour surface**~~ done 2026-10-25
+   (SURFACE type 2, render to texture). The colour surface is 2^wl by
+   2^hl from BSWIZZLE2 (0x53 FORMAT 23:16 / 31:24), addressed like a
+   texture (nv4_swizzle: x bit, then y bit); the clip is cut to that
+   size. Assumed, not checked on hardware: depth follows the same
+   swizzled addressing from its own offset (pitch unused). Such a
+   batch is shaded serially on the CPU (no row regions; the GPU lane
+   and threads never see it), and a batch is cut where states switch
+   between swizzled and pitch targets, so the surrounding scene keeps
+   its threads/GPU. No driver at hand uses it: NVIDIA's 1999 D3D
+   driver (V4400 nvSetD3DSurfaceState / Dell nv4ctxt.c) always sets
+   TYPE_PITCH and copies to textures instead. Test: `tests/video/
+   nv4_3d_swizzle_test.c` (NV4.Swizzle3D; includes nv4_pgraph_3d.c).
+   `dev` prints the 3D surface type and both swizzle sizes.
 
 ### B. Widen the software tested (Win98, TNT then TNT2)
 4. **OpenGL ICD.** `nv4ogl.dll` is already installed with 4.11. The ICD

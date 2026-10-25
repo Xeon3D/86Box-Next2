@@ -216,6 +216,10 @@ From Bash with MSYS2 UCRT64 first on PATH:
     3 times per flush.
   - `NV4_GPU_PROFILE=N` logs the next N GPU batches one by one: spans,
     pixels, and GPU time for uploads, kernel and download.
+  - `NV_GPU_SLOTS=1..8` batches in flight (both NVIDIA lanes; default 4),
+    `NV_GPU_NO_IMPORT=1` stages VRAM rows instead of importing VRAM.
+  - `NV4_GPU_RUN_MIN=N`: spans a run must reach before a state change starts
+    the next kernel variant (2048).
 - **Screenshot seams** are the shot catching a half-drawn frame, not tearing.
 - **`tools/nv4/cycle.sh [WAIT]`:** Start > Shut Down in the guest, waits for
   the emulator to exit, copies `build-static`'s exe into the VM and boots it
@@ -265,10 +269,12 @@ From Bash with MSYS2 UCRT64 first on PATH:
     a full batch (16K triangles / 256K spans). Not when the FIFO runs dry:
     the driver moves PUT every few triangles.
   - `nv4_3d_flush` draws (with the GPU: submits); `nv4_3d_sync` also waits
-    for the GPU's pixels (LFB, VGA window, the 2D classes that read VRAM:
-    blit, scaled image, M2MF). `nv4_3d_touch(lo, hi)` flushes/waits only if
-    the batch (its regions or textures) or the batch in flight reaches
-    those bytes. Vertical blank waits only when the batch in flight draws
+    for the GPU's pixels (the 2D classes that read VRAM: blit, scaled image,
+    M2MF). `nv4_3d_touch(lo, hi)` flushes/waits only if the batch (its
+    regions or textures) or a batch in flight reaches those bytes; LFB and
+    VGA-window accesses go through `nv4_3d_access` (the pending 2D run, then
+    `nv4_3d_touch` with the bytes accessed; the VGA window maps its bytes in
+    packed chain-4 only, else it syncs everything). Vertical blank waits only when the batch in flight draws
     into the displayed bytes. Anything new that reads or writes VRAM from
     the CPU must call `nv4_3d_sync` or `nv4_3d_touch` first.
   - **Regions:** a batch holds up to 4 row layouts (base, pitch) whose bytes
@@ -316,8 +322,13 @@ From Bash with MSYS2 UCRT64 first on PATH:
     bit-exact with one thread.
   - The batch is flushed when the render-target layout changes or a texture
     would read bytes the batch wrote.
-  - Aliasing rows (zero pitch, Z rows narrower than colour rows) are shaded
-    serially.
+  - Aliasing rows (zero pitch, Z rows narrower than colour rows, swizzled
+    targets) are shaded serially: on the CPU, or by the GPU lane as one
+    workgroup in submission order.
+  - 2D rectangle fills join the batch as plain stores, or under any ROP3
+    with a solid or mono pattern (`nv4_3d_fill_rop`): each pixel is
+    `(d & A) | (~d & B)`, A and B worked out per pattern colour by the 2D
+    side (the ROP is bitwise).
 - **GPU lane** (`nv4_pgraph_3d_gpu.c` + `.comp`, Vulkan loaded at run time):
   - The Vulkan setup (loading, device, buffers, pipeline, the slots' command
     buffers, fences and timestamp pools) is `src/video/nv/nv_gpu_vk.c`,
@@ -326,6 +337,19 @@ From Bash with MSYS2 UCRT64 first on PATH:
   - The CPU span shader ported operation for operation. One invocation per
     pixel walks its row's spans in submission order (no barriers);
     workgroups are rows x 64 pixels.
+  - Kernel variants: specialization constants V_TEX (0-2 stages), V_DX6,
+    V_DST (blend/write masks read the destination), V_Z (depth/stencil)
+    compile out what a run's states never use (24 pipelines, plus V_SERIAL).
+    A batch is split into up to 8 runs in submission order (a run shorter
+    than 2048 spans widens instead of ending), one dispatch each with a
+    barrier between. The variants compile on a thread of their own at
+    start; the generic pipeline (the shader's defaults) stands in until
+    then, and serial batches go to the CPU. The first start on a host
+    compiles for about a minute; the NVIDIA driver caches them after.
+  - Serial batches (rows alias): one workgroup walks every span, a barrier
+    after each; uploads/downloads cover each state's reach over its spans
+    (`gpu_serial_ranges`). Left to the CPU when a texture reads bytes the
+    batch writes, or a state's colour and depth bytes meet.
   - Bit-exact rules, on both sides (don't break them):
     - `precise` floats in the kernel; `-ffp-contract=off` for
       `nv4_pgraph_3d.c`.
@@ -333,9 +357,9 @@ From Bash with MSYS2 UCRT64 first on PATH:
     - log2 is computed from the float's bits (`nv4_log2_bits`).
     - Float-to-int conversions go through `nv4_f2i` / `f2i` (INT_MIN when out
       of range).
-  - A flush submits and returns. Two batches can be in flight (slots with
-    their own records, command buffer, fence and timestamps; they complete
-    oldest first):
+  - A flush submits and returns. Up to `nslots` batches can be in flight
+    (4; slots with their own records, command buffer, fence and timestamps;
+    they complete oldest first):
     1. If this slot's last batch is still in flight, complete it (and any
        older one): wait, copy its rows back into VRAM.
     2. Textures: the 32 MB arena is a cache keyed by (DMA object, offset,
@@ -343,12 +367,17 @@ From Bash with MSYS2 UCRT64 first on PATH:
        or system memory, through the AGP aperture via `agpgart_resolve`)
        and copies only new or changed ones. A full arena is emptied and the
        batch gathered again. A texture whose bytes a batch in flight draws
-       (render to texture) completes that batch first; any texture copy
-       waits for every batch in flight (they read the arena).
+       (render to texture) completes that batch first; a texture copy waits
+       only for batches in flight that upload from the same staging bytes
+       (the GPU orders the arena itself: barriers after every kernel).
     3. Upload the touched colour/Z rows, except bytes a batch in flight
        owns (the GPU's mirror is newer there), and the records.
-    4. Dispatch; copy the rows to a staging buffer.
-    The rows reach VRAM when the slot is reused or a sync point waits.
+    4. Dispatch the runs; copy the rows back.
+    With `VK_EXT_external_memory_host` (`nv_gpu_vk.c`) svga.vram moves to a
+    64 KB aligned block imported as the staging buffer: the GPU copies rows
+    straight from and into VRAM, no CPU copies (given back as a calloc'd
+    copy at close for svga_close). Else the rows go through a staging
+    buffer and reach VRAM when the slot is reused or a sync point waits.
   - Verify mode completes each batch at once, so it cannot exercise the
     2-slot pipeline (uploads that skip in-flight rows). Reason about every
     reader of VRAM when changing it.
@@ -356,7 +385,16 @@ From Bash with MSYS2 UCRT64 first on PATH:
     each dispatch has ~0.5 ms of latency whatever its size. Fewer, larger,
     overlapped batches are what helps.
   - Verify result: 2621 synchronous and 2000 asynchronous GPU batches, and
-    17000 threaded batches, identical to the serial path.
+    17000 threaded batches, identical to the serial path. 2026-10-25, with
+    variants, 4 slots and imported VRAM: 1000 3DMark flushes identical.
+  - Tests: `tests/video/nv4_3d_ropfill_test.c` (NV4.RopFill3D: ROP fills
+    against a truth table), `nv4_3d_gpu_test.c` (NV4.Gpu3D: the real lane
+    against the CPU with verify on -- variant runs, ROP fills, a swizzled
+    target; skipped without a Vulkan device).
+  - 2026-10-25, 3DMark's first window (same scene): kernel 7.34 s -> 4.28 s
+    with the variants, vertical-blank waits 2.66 s -> 1.04 s; importing VRAM
+    took CPU row copies from 645 ms to 117 ms; 2 -> 4 -> 6 slots changed
+    little (the kernel was the bottleneck).
 - **Speed:** host time on the emulation thread per span, over 40 s of
   3DMark's first tests (i7-12700K + RTX 2080 SUPER, `tools/nv4/bench.sh`):
 

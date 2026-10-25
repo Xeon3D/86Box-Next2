@@ -7,7 +7,7 @@ D=$(cd "$(dirname "$0")" && pwd)
 P="bash $D/pm.sh"
 W=${PM_DIR:-/f/Claude/86Box-Next/work-pmnt4}
 export PM_DIR=$W
-EXE="$D/../../build-static/src/86Box-Next.exe"
+EXE="$D/../../build-static/src/86Box-Next2.exe"
 if [ "$($P running)" != "0" ]; then
     $P cmd "key 1d,01,81,9d"; sleep 2      # Ctrl+Esc
     $P cmd "key 16,96"; sleep 3            # U: Shut Down...

@@ -17,7 +17,7 @@
 	<key>CFBundleLongVersionString</key>
 	<string>@LONG_VER_STRING@</string>
 	<key>CFBundleName</key>
-	<string>86Box-Next</string>
+	<string>86Box-Next2</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

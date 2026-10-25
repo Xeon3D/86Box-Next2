@@ -135,7 +135,7 @@ RendererStack::RendererStack(QWidget *parent, int monitor_index)
         frameRateTimer->setSingleShot(false);
         frameRateTimer->setInterval(1000);
         connect(frameRateTimer, &QTimer::timeout, [this] {
-            this->setWindowTitle(QObject::tr("86Box-Next Monitor #%1").arg(m_monitor_index + 1) + QString(" - ") + (monitors[m_monitor_index].mon_dpms ? tr("Monitor in sleep mode") : tr("%1 Hz").arg(QString::number(monitors[m_monitor_index].mon_actualrenderedframes.load()) + (monitors[m_monitor_index].mon_interlace ? "i" : ""))));
+            this->setWindowTitle(QObject::tr("86Box-Next2 Monitor #%1").arg(m_monitor_index + 1) + QString(" - ") + (monitors[m_monitor_index].mon_dpms ? tr("Monitor in sleep mode") : tr("%1 Hz").arg(QString::number(monitors[m_monitor_index].mon_actualrenderedframes.load()) + (monitors[m_monitor_index].mon_interlace ? "i" : ""))));
         });
         frameRateTimer->start(1000);
     }
@@ -449,7 +449,7 @@ RendererStack::guestToolsPointerAt(const QPointF &pos)
     }
 }
 
-/* The local files a drag from outside 86Box-Next carries; empty if it is
+/* The local files a drag from outside 86Box-Next2 carries; empty if it is
    anything else, or Guest Tools cannot take it now. */
 QStringList
 RendererStack::guestToolsDragFiles(const QDropEvent *event) const

@@ -1,6 +1,6 @@
-# The NVIDIA RIVA 128 (NV3) in 86Box-Next
+# The NVIDIA RIVA 128 (NV3) in 86Box-Next2
 
-This document explains how 86Box-Next emulates the NVIDIA RIVA 128, what works, how the pieces
+This document explains how 86Box-Next2 emulates the NVIDIA RIVA 128, what works, how the pieces
 fit together, and how it was made to work with NVIDIA's own Windows 98 drivers. It is written
 for people: someone who wants to use the card, someone who wants to understand the code, or
 someone who picks the work up later. File names are relative to the repository root.
@@ -405,7 +405,7 @@ DirectDraw tests.
 
 ## 13. Debugging and test tools
 
-- **`dev nv3 ...`** (through 86Box-Next's debug command file, `BOX86NEXT_DEBUG_CMD`): a state
+- **`dev nv3 ...`** (through 86Box-Next2's debug command file, `BOX86NEXT_DEBUG_CMD`): a state
   dump; traces of MMIO accesses, FIFO software methods and RAMHT binds, M2MF transfers,
   notifiers, push buffer headers, Direct3D triangles, texture mip levels; the last 256
   methods; VRAM/RAMIN write watches.

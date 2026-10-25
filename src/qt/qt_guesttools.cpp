@@ -614,7 +614,7 @@ processExeName(DWORD pid)
 static UINT
 focusMessage()
 {
-    static UINT msg = RegisterWindowMessageW(L"86Box-Next.GuestTools.TakeFocus");
+    static UINT msg = RegisterWindowMessageW(L"86Box-Next2.GuestTools.TakeFocus");
     return msg;
 }
 
@@ -656,7 +656,7 @@ installFocusFilter(bool on)
 
 /* Integrated, the keyboard follows the pointer from one machine's window to
    another's: while this machine has the focus and the pointer is over
-   another 86Box-Next window, that window takes the focus where it is,
+   another 86Box-Next2 window, that window takes the focus where it is,
    covered or not -- it is not raised. (Only between machines: other
    programs still take the focus on a click.) */
 static void

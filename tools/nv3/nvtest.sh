@@ -26,7 +26,7 @@ case "$1" in
 start)
     n=$(powershell -NoProfile -ExecutionPolicy Bypass -File "$PROCS" | tr -dc 0-9); if [ "$n" != "0" ]; then echo "test VM already running ($n)" >&2; exit 1; fi
     rm -f "$CMD" "$RIGU/nv3.log"
-    TEMP="$(cygpath -w "$OUT")" TMP="$(cygpath -w "$OUT")" powershell -NoProfile -ExecutionPolicy Bypass -Command "& '$(cygpath -w "$(dirname "$0")")\launch-noactivate.ps1' -Exe '$RIG\86Box-Next.exe' -ArgLine '-P \"$RIG\" --logfile \"$RIG\nv3.log\"' -Dir '$RIG' -CmdFile '$CMDW'"
+    TEMP="$(cygpath -w "$OUT")" TMP="$(cygpath -w "$OUT")" powershell -NoProfile -ExecutionPolicy Bypass -Command "& '$(cygpath -w "$(dirname "$0")")\launch-noactivate.ps1' -Exe '$RIG\86Box-Next2.exe' -ArgLine '-P \"$RIG\" --logfile \"$RIG\nv3.log\"' -Dir '$RIG' -CmdFile '$CMDW'"
     ;;
 cmd)
     shift; send "$@" ;;

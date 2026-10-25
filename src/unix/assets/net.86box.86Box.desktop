@@ -1,8 +1,8 @@
 [Desktop Entry]
-Name=86Box-Next
+Name=86Box-Next2
 GenericName=Classic PC emulator
 Comment=An emulator for classic IBM PC clones
-Exec=86Box-Next
+Exec=86Box-Next2
 Icon=net.86box.86Box
 Terminal=false
 Type=Application

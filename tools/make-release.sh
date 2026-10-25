@@ -1,14 +1,14 @@
 #!/bin/sh
-# Build 86Box-Next Release N, keep its zip and stage it in every rig.
+# Build 86Box-Next2 Release N, keep its zip and stage it in every rig.
 #
 #   tools/make-release.sh N      (run from the repo root, Git Bash)
 #
 # 1. Builds build-static with NEXT_RELEASE=N: the title bar reads
-#    "86Box-Next 7.0 - Release N".
-# 2. Packages the stripped 86Box-Next.exe and isp-server.exe with COPYING as
-#    Releases-archive/86Box-Next-Release-N-win64.zip -- the archive keeps
+#    "86Box-Next2 7.0 - Release N".
+# 2. Packages the stripped 86Box-Next2.exe and isp-server.exe with COPYING as
+#    Releases-archive/86Box-Next2-Release-N-win64.zip -- the archive keeps
 #    every release's zip; an existing one is never overwritten.
-# 3. Stages exactly those exes: 86Box-Next.exe into every rig in Latest/
+# 3. Stages exactly those exes: 86Box-Next2.exe into every rig in Latest/
 #    (as tools/stage-rig.sh picks them), isp-server.exe into Latest/.
 #
 # Publishing stays a separate step (it is printed at the end): tag the
@@ -18,7 +18,7 @@ N=$1
 case "$N" in
     "" | *[!0-9A-Za-z._-]*) echo "usage: tools/make-release.sh N" >&2; exit 1 ;;
 esac
-NAME=86Box-Next-Release-$N
+NAME=86Box-Next2-Release-$N
 ARCHIVE=Releases-archive  # one zip per release, in the repo root, git-ignored
 ZIP=$ARCHIVE/$NAME-win64.zip
 OUT=Latest  # the rigs: Latest/ in the repo root, git-ignored
@@ -26,9 +26,10 @@ UCRT=/c/msys64/ucrt64
 
 [ -e "$ZIP" ] && { echo "$ZIP already exists" >&2; exit 1; }
 [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "uncommitted changes: commit first" >&2; exit 1; }
-if tasklist //FI "IMAGENAME eq 86Box-Next.exe" 2>/dev/null | grep -qi "86Box-Next.exe" ||
+if tasklist //FI "IMAGENAME eq 86Box-Next2.exe" 2>/dev/null | grep -qi "86Box-Next2.exe" ||
+   tasklist //FI "IMAGENAME eq 86Box-Next.exe" 2>/dev/null | grep -qi "86Box-Next.exe" ||
    tasklist //FI "IMAGENAME eq isp-server.exe" 2>/dev/null | grep -qi "isp-server.exe"; then
-    echo "86Box-Next or isp-server is running; close it first" >&2
+    echo "86Box-Next2 or isp-server is running; close it first" >&2
     exit 2
 fi
 
@@ -43,7 +44,7 @@ fi
 STAGE=build-static/release-stage
 rm -rf "$STAGE"
 mkdir -p "$STAGE/$NAME"
-"$UCRT/bin/strip" -o "$STAGE/$NAME/86Box-Next.exe" build-static/src/86Box-Next.exe
+"$UCRT/bin/strip" -o "$STAGE/$NAME/86Box-Next2.exe" build-static/src/86Box-Next2.exe
 "$UCRT/bin/strip" -o "$STAGE/$NAME/isp-server.exe" build-static/isp-server/isp-server.exe
 cp COPYING "$STAGE/$NAME/"
 mkdir -p "$ARCHIVE"
@@ -55,8 +56,9 @@ echo "Archived $ZIP"
 
 for d in "$OUT"/*/; do
     d=${d%/}
-    if [ -f "$d/86box.cfg" ] || [ -f "$d/86Box-Next.exe" ]; then
-        cp "$STAGE/$NAME/86Box-Next.exe" "$d/86Box-Next.exe"
+    if [ -f "$d/86box.cfg" ] || [ -f "$d/86Box-Next2.exe" ] || [ -f "$d/86Box-Next.exe" ]; then
+        cp "$STAGE/$NAME/86Box-Next2.exe" "$d/86Box-Next2.exe"
+        rm -f "$d/86Box-Next.exe"  # the exe's name before 86Box-Next2
         echo "Staged Release $N in $d"
     fi
 done
@@ -67,5 +69,5 @@ rm -rf "$STAGE"
 
 echo
 echo "To publish:"
-echo "  git tag -a release-$N -m \"86Box-Next Release $N\" && git push origin release-$N"
-echo "  gh release create release-$N \"$ZIP\" -R Xeon3D/86Box-Next2 --title \"86Box-Next Release $N\" --notes-file <notes.md> --verify-tag"
+echo "  git tag -a release-$N -m \"86Box-Next2 Release $N\" && git push origin release-$N"
+echo "  gh release create release-$N \"$ZIP\" -R Xeon3D/86Box-Next2 --title \"86Box-Next2 Release $N\" --notes-file <notes.md> --verify-tag"

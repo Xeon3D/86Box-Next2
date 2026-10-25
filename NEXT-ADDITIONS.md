@@ -1,4 +1,4 @@
-# 86Box-Next: additions over upstream 86Box
+# 86Box-Next2: additions over upstream 86Box
 
 Status as of **Release 3.0** (build 186, 18 October 2026; the first 86Box-Next2 release, new recompiler only). For each addition: what it is,
 its status, and the known bugs or limitations. "Driver" or "hardware" means real hardware with
@@ -14,10 +14,10 @@ issues · 🧪 experimental / not tried in a guest · ⛔ not in this release (u
 
 | Addition | Status | Known bugs / limitations |
 |---|---|---|
-| **86Box-Next branding** (`EMU_DISPLAY_NAME`; `EMU_NAME` stays "86Box" for paths and guest-visible IDs) | ✅ | None known. |
+| **86Box-Next2 branding** (`EMU_DISPLAY_NAME`; `EMU_NAME` stays "86Box" for paths and guest-visible IDs) | ✅ | None known. |
 | **Per-machine config only** (no global config; `vmm.ini` beside `86box.cfg`) | ✅ | None known. |
 | **VM Manager optional, off by default** | ✅ | None known. |
-| **Build number and releases** (`.build-number` in the title bar, `NEXT_RELEASE=N` → "Release N", `tools/make-release.sh`) | ✅ | Releases are Qt 6 only. `make-release.sh` refuses to run while any 86Box-Next process runs, and stages branch-owned rigs too (the ISDN rig's exe must be kept aside). |
+| **Build number and releases** (`.build-number` in the title bar, `NEXT_RELEASE=N` → "Release N", `tools/make-release.sh`) | ✅ | Releases are Qt 6 only. `make-release.sh` refuses to run while any 86Box-Next2 process runs, and stages branch-owned rigs too (the ISDN rig's exe must be kept aside). |
 | **Status bar icon order** (Preferences > Status bar) | ✅ | A new icon group needs its key and name added by hand. The PC Card/USB/modem/Sound Canvas menus used to be lost when Preferences replaced the status bar; fixed (`adoptMenus()`). |
 | **Soft settings changes** (PC Cards, COM/LPT devices, MIDI, ISA MPU-401 without a PC reset) | ✅ | Still need a hard reset: port enable/disable, ECP DMA jumper, MCA MPU-401, a port held by a non-hotplug device (serial mouse), fitting or removing the PCMCIA controller. A COM-port soft-reset crash was fixed (b33868148). |
 | **BIOS vendor in Settings > Machine** | ✅ | Machines the generator cannot place show "Unknown"; rerun `tools/machine-bios-vendors.py` when upstream adds machines. |

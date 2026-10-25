@@ -8,7 +8,7 @@
 # a file "owner" with "NAME VM since". A lock older than 45 minutes whose VM
 # is not running any more is considered stale and taken over.
 L="C:/Users/xeon4/AppData/Roaming/Claude/side-session-notes/local_76d07661-93a5-449d-b186-1ce851f4f0b5/VM-LOCK"
-running() { powershell -NoProfile -Command "(Get-CimInstance Win32_Process -Filter \"Name='86Box-Next.exe'\" | Where-Object { \$_.CommandLine -like '*$1*' } | Measure-Object).Count" | tr -d '\r'; }
+running() { powershell -NoProfile -Command "(Get-CimInstance Win32_Process -Filter \"Name='86Box-Next2.exe'\" | Where-Object { \$_.CommandLine -like '*$1*' } | Measure-Object).Count" | tr -d '\r'; }
 case "$1" in
 acquire)
     end=$(( $(date +%s) + ${4:-3600} ))

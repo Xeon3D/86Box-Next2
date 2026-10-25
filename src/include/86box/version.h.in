@@ -24,7 +24,7 @@
 
 /* The name shown to users.  EMU_NAME stays "86Box" for file paths, settings
    locations and identifiers emulated hardware reports to the guest. */
-#define EMU_DISPLAY_NAME   "86Box-Next"
+#define EMU_DISPLAY_NAME   "86Box-Next2"
 #define EMU_DISPLAY_NAME_W LSTR(EMU_DISPLAY_NAME)
 
 #define EMU_VERSION       "@CMAKE_PROJECT_VERSION@"

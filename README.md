@@ -6,12 +6,12 @@
 
 ---
 
-86Box-Next
-==========
+86Box-Next2
+===========
 
-**86Box-Next is a fork of [86Box](https://github.com/86Box/86Box)**, the low level x86 emulator for IBM PC systems and compatibles from 1981 to the PCI era. It is merged with upstream 86Box every week. Everything 86Box does, this does too; below is what it adds.
+**86Box-Next2 is a fork of [86Box](https://github.com/86Box/86Box)**, the low level x86 emulator for IBM PC systems and compatibles from 1981 to the PCI era. It is merged with upstream 86Box every week. Everything 86Box does, this does too; below is what it adds.
 
-Windows x64 builds are on the [releases page](https://github.com/Xeon3D/86Box-Next2/releases). They are static: one `86Box-Next.exe` and one `isp-server.exe`, no DLLs. The ROMs are not included: use the [86Box ROM set](https://github.com/86Box/roms). The NVIDIA BIOSes are not in it; they are in [Xeon3D/roms](https://github.com/Xeon3D/roms) (`roms/video/nvidia/nv3` and `nv4`), which is the 86Box set plus those.
+Windows x64 builds are on the [releases page](https://github.com/Xeon3D/86Box-Next2/releases). They are static: one `86Box-Next2.exe` and one `isp-server.exe`, no DLLs. The ROMs are not included: use the [86Box ROM set](https://github.com/86Box/roms). The NVIDIA BIOSes are not in it; they are in [Xeon3D/roms](https://github.com/Xeon3D/roms) (`roms/video/nvidia/nv3` and `nv4`), which is the 86Box set plus those.
 
 **86Box-Next2** is the continuation of [Xeon3D/86Box-Next](https://github.com/Xeon3D/86Box-Next): upstream 86Box retired its old dynamic recompiler, and so does this fork. Only the new recompiler remains; 86Box-Next keeps the last builds with the old one.
 
@@ -116,7 +116,7 @@ Tip: with the **shareware** Quake data GLQuake shows the desktop instead of the 
 Licensing
 ---------
 
-86Box-Next, like 86Box, is released under the [GNU General Public License, version 2](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html) or later. For more information, see the `COPYING` file in the root of the repository.
+86Box-Next2, like 86Box, is released under the [GNU General Public License, version 2](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html) or later. For more information, see the `COPYING` file in the root of the repository.
 
 The Roland Sound Canvas device includes 88emu from [gearmulator](https://github.com/dsp56300/gearmulator), which is released under the [GNU General Public License, version 3](https://www.gnu.org/licenses/gpl-3.0.html); builds that include it are therefore distributed under GPLv3.
 

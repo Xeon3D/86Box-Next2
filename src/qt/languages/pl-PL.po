@@ -256,7 +256,7 @@ msgstr "Pomo&c"
 msgid "&Documentation…"
 msgstr "&Dokumentacja…"
 
-msgid "&About 86Box-Next…"
+msgid "&About 86Box-Next2…"
 msgstr "&O 86Boxie…"
 
 msgid "&New image…"
@@ -1099,8 +1099,8 @@ msgstr "Obrazy flux"
 msgid "Are you sure you want to hard reset the emulated machine?"
 msgstr "Czy na pewno chcesz wykonać twardy reset emulowanej maszyny?"
 
-msgid "Are you sure you want to exit 86Box-Next?"
-msgstr "Czy na pewno chcesz zakończyć 86Box-Next?"
+msgid "Are you sure you want to exit 86Box-Next2?"
+msgstr "Czy na pewno chcesz zakończyć 86Box-Next2?"
 
 msgid "Unable to initialize Ghostscript. %1 is required for automatic conversion of PostScript files to PDF.\n\nAny documents sent to the generic PostScript printer will be saved as PostScript (.ps) files."
 msgstr "Nie można zainicjować Ghostscriptu. %1 jest wymagany do automatycznej konwersji plików PostScript do PDF.\n\nDokumenty wysłane do generycznej drukarki PostScript zostaną zapisane jako pliki PostScript (.ps)."
@@ -1338,7 +1338,7 @@ msgstr "Kreator dodawania nowego systemu"
 msgid "Introduction"
 msgstr "Wstęp"
 
-msgid "This will help you add a new system to 86Box-Next."
+msgid "This will help you add a new system to 86Box-Next2."
 msgstr "Ten kreator pomoże Ci dodać nowy system do 86Boxa."
 
 msgid "New configuration"
@@ -1494,7 +1494,7 @@ msgstr "Ostrzeżenie"
 msgid "&Kill"
 msgstr "&Zabij"
 
-msgid "Killing a virtual machine can cause data loss. Only do this if the 86Box-Next process gets stuck.\n\nDo you really wish to kill the virtual machine \"%1\"?"
+msgid "Killing a virtual machine can cause data loss. Only do this if the 86Box-Next2 process gets stuck.\n\nDo you really wish to kill the virtual machine \"%1\"?"
 msgstr "Zabicie maszyny wirtualnej może spowodować utratę danych. Zrób to tylko, jeśli proces 86Boxa się zawiesił.\n\nCzy na pewno chcesz zabić maszynę wirtualną „%1”?"
 
 msgid "&Delete"
@@ -1954,8 +1954,8 @@ msgstr "<html><head/><body><p>Podczas wybierania obrazów nośników (CD-ROM, dy
 msgid "This machine might have been moved or copied."
 msgstr "To urządzenie mogło zostać przeniesione lub skopiowane."
 
-msgid "In order to ensure proper networking functionality, 86Box-Next needs to know if this machine was moved or copied.\n\nSelect \"I Copied It\" if you are not sure."
-msgstr "Aby zapewnić prawidłową funkcjonalność sieci, 86Box-Next musi wiedzieć, czy to maszyna zostało przeniesiona albo skopiowana.\n\nW przypadku braku pewności, wybierz opcję „Została skopiowana”."
+msgid "In order to ensure proper networking functionality, 86Box-Next2 needs to know if this machine was moved or copied.\n\nSelect \"I Copied It\" if you are not sure."
+msgstr "Aby zapewnić prawidłową funkcjonalność sieci, 86Box-Next2 musi wiedzieć, czy to maszyna zostało przeniesiona albo skopiowana.\n\nW przypadku braku pewności, wybierz opcję „Została skopiowana”."
 
 msgid "I Moved It"
 msgstr "Została przeniesiona"
@@ -1963,8 +1963,8 @@ msgstr "Została przeniesiona"
 msgid "I Copied It"
 msgstr "Została skopiowana"
 
-msgid "86Box-Next Monitor #%1"
-msgstr "86Box-Next Monitor %1"
+msgid "86Box-Next2 Monitor #%1"
+msgstr "86Box-Next2 Monitor %1"
 
 msgid "No MCA devices."
 msgstr "Brak urządzeń MCA."

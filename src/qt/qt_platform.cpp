@@ -967,7 +967,7 @@ Preferences::reloadStrings()
     translatedstrings[STRING_HW_NOT_AVAILABLE_DEVICE]   = QCoreApplication::translate("", "Device \"%s\" is not available due to missing ROMs. Ignoring the device.").toUtf8();
     translatedstrings[STRING_HW_NOT_AVAILABLE_TITLE]    = QCoreApplication::translate("", "Hardware not available").toUtf8();
     translatedstrings[STRING_UNSUPPORTED_TITLE] = QCoreApplication::translate("", "Unsupported Hardware").toUtf8();
-    translatedstrings[STRING_UNSUPPORTED_TEXT] = QCoreApplication::translate("", "Hardware in this machine profile is not supported by this current build of 86Box-Next.").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_TEXT] = QCoreApplication::translate("", "Hardware in this machine profile is not supported by this current build of 86Box-Next2.").toUtf8();
     translatedstrings[STRING_UNSUPPORTED_OTHERS] = QCoreApplication::translate("", "(and %i others)").toUtf8();
     translatedstrings[STRING_UNSUPPORTED_REPLACE] = QCoreApplication::translate("", "Loading the configuration anyway will replace the machine and overwrite the existing configuration.").toUtf8();
     translatedstrings[STRING_UNSUPPORTED_REMOVE] = QCoreApplication::translate("", "Loading the configuration anyway will remove these components and overwrite the existing configuration.").toUtf8();

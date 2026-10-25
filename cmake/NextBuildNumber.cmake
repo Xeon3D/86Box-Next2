@@ -10,7 +10,7 @@
 #
 # A release build sets NEXT_RELEASE in the environment of the build
 # (NEXT_RELEASE=1 cmake --build build-static): the title bar then reads
-# "86Box-Next 7.0 - Release 1" instead of "86Box-Next 7.0 build N".  It is
+# "86Box-Next2 7.0 - Release 1" instead of "86Box-Next2 7.0 build N".  It is
 # read on every build, so the next build without it is a plain build again.
 #
 #   cmake -DMODE=pre|post -DFILE=<counter> -DOUT=<header> -P NextBuildNumber.cmake
@@ -45,8 +45,8 @@ elseif(MODE STREQUAL "post")
     set(number "${CMAKE_MATCH_1}")
     string(REGEX MATCH "NEXT_RELEASE \"([^\"]*)\"" _ "${header}")
     if(CMAKE_MATCH_1)
-        message(STATUS "86Box-Next build ${number}, Release ${CMAKE_MATCH_1}")
+        message(STATUS "86Box-Next2 build ${number}, Release ${CMAKE_MATCH_1}")
     else()
-        message(STATUS "86Box-Next build ${number}")
+        message(STATUS "86Box-Next2 build ${number}")
     endif()
 endif()

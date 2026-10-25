@@ -291,7 +291,7 @@ UsbManager::buildMenu()
         connect(hint, &QAction::triggered, this, [this]() {
             QMessageBox::information(parentWidget, tr("USB passthrough"),
                                      tr("To connect any USB device to the virtual machine the way VirtualBox and VMware do, install UsbDk "
-                                        "(a signed driver from Red Hat / Daynix) once, then restart 86Box-Next:\n\n"
+                                        "(a signed driver from Red Hat / Daynix) once, then restart 86Box-Next2:\n\n"
                                         "https://github.com/daynix/UsbDk/releases\n\n"
                                         "Without it, only devices given the WinUSB driver (for example with Zadig) can be connected."));
         });

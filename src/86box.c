@@ -1372,7 +1372,7 @@ usage:
     /* At this point, we can safely create the full path name. */
     path_append_filename(cfg_path, usr_path, p);
 
-    /* 86Box-Next keeps the global settings in the machine's own 86box.cfg,
+    /* 86Box-Next2 keeps the global settings in the machine's own 86box.cfg,
        so that file is the "global configuration file", and -O is ignored. */
     if (global != NULL)
         global_cfg_overridden = 0;
@@ -1421,9 +1421,9 @@ usage:
     pclog("#\n# %s v%s logfile, created %s\n#\n",
           EMU_DISPLAY_NAME, EMU_VERSION_FULL, temp);
     if (next_release[0])
-        pclog("# 86Box-Next Release %s, build %d\n", next_release, next_build_number);
+        pclog("# 86Box-Next2 Release %s, build %d\n", next_release, next_build_number);
     else
-        pclog("# 86Box-Next build %d\n", next_build_number);
+        pclog("# 86Box-Next2 build %d\n", next_build_number);
 
     if (portable_mode) {
         pclog("# Portable mode enabled.\n");

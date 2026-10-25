@@ -1,6 +1,6 @@
 # CARDTEST
 
-Self-checking graphics-card test CDs for 86Box-Next guests (DOS, Windows 95/98/Me/NT 4/2000),
+Self-checking graphics-card test CDs for 86Box-Next2 guests (DOS, Windows 95/98/Me/NT 4/2000),
 plus the host tools that drive test VMs and read their results. See `NOTES.md` (layout, grading,
 findings per card) and `cd/README.TXT` (what is on the discs and how to run them).
 

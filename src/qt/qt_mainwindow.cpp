@@ -1028,7 +1028,7 @@ MainWindow::closeEvent(QCloseEvent *event)
     skip_exit_confirmation       = false;
 
     if (!skip_confirmation && confirm_exit && confirm_exit_cmdl && cpu_thread_run) {
-        QMessageBox questionbox(QMessageBox::Icon::Question, EMU_DISPLAY_NAME, tr("Are you sure you want to exit 86Box-Next?"), QMessageBox::Yes | QMessageBox::No, this);
+        QMessageBox questionbox(QMessageBox::Icon::Question, EMU_DISPLAY_NAME, tr("Are you sure you want to exit 86Box-Next2?"), QMessageBox::Yes | QMessageBox::No, this);
         auto        chkbox = new QCheckBox(tr("Don't show this message again"));
         questionbox.setCheckBox(chkbox);
         chkbox->setChecked(!confirm_exit);
@@ -1234,7 +1234,7 @@ MainWindow::initRendererMonitorSlot(int monitor_index)
         secondaryRenderer->setWindowFlags(Qt::CustomizeWindowHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
         /* Without a maximize button, Windows maximizes the window over the taskbar. */
         secondaryRenderer->setWindowFlag(Qt::WindowMaximizeButtonHint, vid_resize == 1);
-        secondaryRenderer->setWindowTitle(QObject::tr("86Box-Next Monitor #%1").arg(monitor_index + 1));
+        secondaryRenderer->setWindowTitle(QObject::tr("86Box-Next2 Monitor #%1").arg(monitor_index + 1));
         secondaryRenderer->setContextMenuPolicy(Qt::PreventContextMenu);
 
         for (int i = 0; i < this->actions().size(); i++) {

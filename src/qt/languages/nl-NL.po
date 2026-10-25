@@ -255,8 +255,8 @@ msgstr "&Help"
 msgid "&Documentation…"
 msgstr "&Documentatie…"
 
-msgid "&About 86Box-Next…"
-msgstr "&Over 86Box-Next…"
+msgid "&About 86Box-Next2…"
+msgstr "&Over 86Box-Next2…"
 
 msgid "&New image…"
 msgstr "&Nieuw imagebestand…"
@@ -1097,8 +1097,8 @@ msgstr "Flux images"
 msgid "Are you sure you want to hard reset the emulated machine?"
 msgstr "Weet je zeker dat je de geëmuleerde machine wilt resetten?"
 
-msgid "Are you sure you want to exit 86Box-Next?"
-msgstr "Weet je zeker dat je 86Box-Next wilt verlaten?"
+msgid "Are you sure you want to exit 86Box-Next2?"
+msgstr "Weet je zeker dat je 86Box-Next2 wilt verlaten?"
 
 msgid "Unable to initialize Ghostscript. %1 is required for automatic conversion of PostScript files to PDF.\n\nAny documents sent to the generic PostScript printer will be saved as PostScript (.ps) files."
 msgstr "Kan Ghostscript niet initialiseren. %1 is vereist voor automatische conversie van PostScript-bestanden naar PDF.\n\nAlle documenten die naar de generieke PostScript-printer worden gestuurd, worden opgeslagen als PostScript-bestanden (.ps)."
@@ -1332,8 +1332,8 @@ msgstr "Wizard toevoegen van nieuw systeem"
 msgid "Introduction"
 msgstr "Introductie"
 
-msgid "This will help you add a new system to 86Box-Next."
-msgstr "Dit helpt je een nieuw systeem toe te voegen aan 86Box-Next."
+msgid "This will help you add a new system to 86Box-Next2."
+msgstr "Dit helpt je een nieuw systeem toe te voegen aan 86Box-Next2."
 
 msgid "New configuration"
 msgstr "Nieuwe configuratie"
@@ -1488,7 +1488,7 @@ msgstr "Waarschuwing"
 msgid "&Kill"
 msgstr "&Gedwongen beëindigen"
 
-msgid "Killing a virtual machine can cause data loss. Only do this if the 86Box-Next process gets stuck.\n\nDo you really wish to kill the virtual machine \"%1\"?"
+msgid "Killing a virtual machine can cause data loss. Only do this if the 86Box-Next2 process gets stuck.\n\nDo you really wish to kill the virtual machine \"%1\"?"
 msgstr "Gedwongen beëindiging van een virtuele machine kan dataverlies veroorzaken. Doe dit alleen wanneer het 86Box-proces is vast gelopen.\n\nWeet je zeker dat je de virtuele machine \"%1\" wil beëindigen?"
 
 msgid "&Delete"
@@ -1943,8 +1943,8 @@ msgstr "<html><head/><body><p>Bij het selecteren van media-images (CD-ROM, flopp
 msgid "This machine might have been moved or copied."
 msgstr "Deze machine is misschien verplaatst of gekopieerd."
 
-msgid "In order to ensure proper networking functionality, 86Box-Next needs to know if this machine was moved or copied.\n\nSelect \"I Copied It\" if you are not sure."
-msgstr "Om een goede netwerkfunctionaliteit te garanderen, moet 86Box-Next weten of deze machine verplaatst of gekopieerd is.\n\nSelecteer \"Ik heb het gekopieerd\" als u het niet zeker weet."
+msgid "In order to ensure proper networking functionality, 86Box-Next2 needs to know if this machine was moved or copied.\n\nSelect \"I Copied It\" if you are not sure."
+msgstr "Om een goede netwerkfunctionaliteit te garanderen, moet 86Box-Next2 weten of deze machine verplaatst of gekopieerd is.\n\nSelecteer \"Ik heb het gekopieerd\" als u het niet zeker weet."
 
 msgid "I Moved It"
 msgstr "Ik heb het verplaatst"
@@ -1952,8 +1952,8 @@ msgstr "Ik heb het verplaatst"
 msgid "I Copied It"
 msgstr "Ik heb het gekopieerd"
 
-msgid "86Box-Next Monitor #%1"
-msgstr "86Box-Next Monitor #%1"
+msgid "86Box-Next2 Monitor #%1"
+msgstr "86Box-Next2 Monitor #%1"
 
 msgid "No MCA devices."
 msgstr "Geen MCA-apparaten."

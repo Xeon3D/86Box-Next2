@@ -1,4 +1,4 @@
-# 86Box-Next
+# 86Box-Next2
 
 A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
 
@@ -11,8 +11,10 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
 ## Fork additions
 - Elo TouchSystems SmartSet serial touchscreen (`src/device/mouse_elo_touchscreen.c`),
   ported from [PeepeeBox](https://github.com/Xeon3D/PeepeeBox).
-- Branded "86Box-Next" via `EMU_DISPLAY_NAME`; `EMU_NAME` stays "86Box" for paths
+- Branded "86Box-Next2" via `EMU_DISPLAY_NAME`; `EMU_NAME` stays "86Box" for paths
   and guest-visible hardware IDs. Use `EMU_DISPLAY_NAME` for anything users read.
+  The exe is `86Box-Next2.exe` (`OUTPUT_NAME`; it was `86Box-Next.exe` up to 2026-10-25).
+  The `/* 86Box-Next: ... */` comments marking the fork's changes keep the old name.
 - No global config: every setting lives in the machine's own `86box.cfg`
   (`config.c`); the optional VM Manager's `vmm.ini` sits next to it.
 - VM Manager is optional and off by default (Preferences > Emulator).
@@ -302,8 +304,8 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   capture". The keyboard follows the pointer: off the guest's display (`guest_tools_keyboard_outside()`)
   `keyboard_input()` drops new presses (releases of keys down in the guest still pass), the Windows
   low-level hook and the Qt key filter let the host have the keys, and `GuestTools::poll()` hands
-  the focus to another 86Box-Next window (same exe name) under the pointer -- only between machines,
-  and without raising it: it posts that window a registered message ("86Box-Next.GuestTools.TakeFocus")
+  the focus to another 86Box-Next2 window (same exe name) under the pointer -- only between machines,
+  and without raising it: it posts that window a registered message ("86Box-Next2.GuestTools.TakeFocus")
   after AllowSetForegroundWindow, and the window's `FocusFilter` (a native event filter) takes the
   foreground itself while adding SWP_NOZORDER to its WM_WINDOWPOSCHANGING for 250 ms. Clipboard: UTF-16 text, LF line ends, 1 MB; `src/qt/qt_guesttools.cpp` keeps a
   snapshot of the host clipboard for the emulation thread and drops its own echoes. Agents in
@@ -442,7 +444,7 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   holds the last successful build; `cmake/NextBuildNumber.cmake` bumps it on every
   successful link, so a no-change build still relinks with the next number.
   A release build: `NEXT_RELEASE=1 cmake --build build-static` -- the title bar reads
-  "86Box-Next 7.0 - Release 1" (the About box and the log keep the build number too). It is
+  "86Box-Next2 7.0 - Release 1" (the About box and the log keep the build number too). It is
   read from the environment on every build, so the next build without it is a plain build
   again. Every release: `tools/make-release.sh N` builds Release N, keeps its zip in
   `Releases-archive/` (repo root, git-ignored; one per release, never overwritten) and stages
@@ -465,7 +467,8 @@ pushed, everything else of ours (the old ROMS-EXTRA: STB, Savage, Permedia 2, Al
 MegaPPBox's `megatouch`; the Sound Canvas/MT-32 dumps). New ROMs go there, never into a rig only.
 Leave the rigs' ROMs alone unless strictly necessary. **Never delete
 anything else in the rigs** -- `86box.cfg`, `nvr/` and disk images are theirs.
-Restage after every change; it refuses while 86Box-Next is running.
+Restage after every change; it refuses while 86Box-Next2 (or an old 86Box-Next.exe) is running
+from a rig, and removes a rig's old `86Box-Next.exe` once `86Box-Next2.exe` is in.
 
 ## Building (Windows)
 Static (the default, and what gets staged): MSYS2 UCRT64 with `qt6-static`, `libtiff`,

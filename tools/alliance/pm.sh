@@ -7,7 +7,7 @@
 #   pm.sh stop             kill the VM (last resort: Win98 then boots to Safe Mode)
 #   pm.sh running          print how many emulators run this VM (0 or 1)
 # PM_DIR: the VM folder (default F:/Claude/86Box-Next/work-pmdos), with
-#   86Box-Next.exe, 86box.cfg and romsx/ (the Alliance ROMs, passed with -R).
+#   86Box-Next2.exe, 86box.cfg and romsx/ (the Alliance ROMs, passed with -R).
 # PM_SHOTS: where PNGs go (default $PM_DIR/shots).
 W=${PM_DIR:-/f/Claude/86Box-Next/work-pmdos}
 WW=$(cygpath -w "$W")
@@ -15,7 +15,7 @@ SHOTS=${PM_SHOTS:-$W/shots}
 CMDF="$W/dbg.cmd"
 # the emulators running this VM: those started with -P "<its folder>"
 vm_pids() {
-    powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='86Box-Next.exe'\" | ForEach-Object { [string]\$_.ProcessId + ' ' + \$_.CommandLine }" |
+    powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='86Box-Next2.exe'\" | ForEach-Object { [string]\$_.ProcessId + ' ' + \$_.CommandLine }" |
         tr -d '\r' | grep -F -- "-P \"$WW\"" | cut -d' ' -f1
 }
 case "$1" in
@@ -26,7 +26,7 @@ start)
         exit 1
     fi
     rm -f "$CMDF" "$W/86box.log"
-    powershell -NoProfile -Command "\$env:BOX86NEXT_DEBUG_CMD='$WW\dbg.cmd'; Start-Process -FilePath '$WW\86Box-Next.exe' -ArgumentList '-P','\"$WW\"','-R','\"$WW\romsx\"','-L','\"$WW\86box.log\"' -WindowStyle Minimized" ;;
+    powershell -NoProfile -Command "\$env:BOX86NEXT_DEBUG_CMD='$WW\dbg.cmd'; Start-Process -FilePath '$WW\86Box-Next2.exe' -ArgumentList '-P','\"$WW\"','-R','\"$WW\romsx\"','-L','\"$WW\86box.log\"' -WindowStyle Minimized" ;;
 cmd)
     printf '%s\n' "$2" > "$CMDF"
     for i in $(seq 1 100); do [ -f "$CMDF" ] || break; sleep 0.1; done ;;

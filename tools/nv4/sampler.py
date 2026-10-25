@@ -1,5 +1,5 @@
 # sampler.py PID SECONDS NMFILE -- host profiler for a running 86Box-Next: samples
-# every thread's RIP and names it from NMFILE (nm build-static/src/86Box-Next.exe).
+# every thread's RIP and names it from NMFILE (nm build-static/src/86Box-Next2.exe).
 import ctypes, ctypes.wintypes as W, sys, time, bisect, collections, subprocess
 
 k32 = ctypes.WinDLL('kernel32', use_last_error=True)

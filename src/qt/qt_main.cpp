@@ -663,7 +663,7 @@ main(int argc, char *argv[])
     Preferences::loadTranslators(&app);
 #ifdef Q_OS_WINDOWS
     QApplication::setFont(Preferences::getUIFont());
-    SetCurrentProcessExplicitAppUserModelID(L"86Box.86Box-Next");
+    SetCurrentProcessExplicitAppUserModelID(L"86Box.86Box-Next2");
 #endif
 
 #ifndef Q_OS_MACOS
@@ -729,7 +729,7 @@ main(int argc, char *argv[])
         QMessageBox movewarnbox;
         movewarnbox.setIcon(QMessageBox::Icon::Warning);
         movewarnbox.setText(QObject::tr("This machine might have been moved or copied."));
-        movewarnbox.setInformativeText(QObject::tr("In order to ensure proper networking functionality, 86Box-Next needs to know if this machine was moved or copied.\n\nSelect \"I Copied It\" if you are not sure."));
+        movewarnbox.setInformativeText(QObject::tr("In order to ensure proper networking functionality, 86Box-Next2 needs to know if this machine was moved or copied.\n\nSelect \"I Copied It\" if you are not sure."));
         const QPushButton *movedButton  = movewarnbox.addButton(QObject::tr("I Moved It"), QMessageBox::AcceptRole);
         const QPushButton *copiedButton = movewarnbox.addButton(QObject::tr("I Copied It"), QMessageBox::DestructiveRole);
         QPushButton       *cancelButton = movewarnbox.addButton(QObject::tr("Cancel"), QMessageBox::RejectRole);

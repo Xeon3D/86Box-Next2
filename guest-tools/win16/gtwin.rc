@@ -15,7 +15,7 @@ BEGIN
     BEGIN
         BLOCK "040904E4"
         BEGIN
-            VALUE "CompanyName",      "86Box-Next\0"
+            VALUE "CompanyName",      "86Box-Next2\0"
             VALUE "FileDescription",  "86Box Guest Tools agent for Windows 3.x\0"
             VALUE "FileVersion",      GT_TOOLS_VERSION_STR "\0"
             VALUE "InternalName",     "GTWIN\0"

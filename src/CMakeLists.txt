@@ -120,7 +120,7 @@ if(INSTRUMENT)
     add_compile_definitions(USE_INSTRUMENT)
 endif()
 
-set_target_properties(86Box PROPERTIES OUTPUT_NAME "86Box-Next")
+set_target_properties(86Box PROPERTIES OUTPUT_NAME "86Box-Next2")
 
 # 86Box-Next: a build number that goes up with every successful build
 # (cmake/NextBuildNumber.cmake), counted in .build-number at the repository
@@ -296,7 +296,7 @@ elseif(APPLE AND NOT QT)
     install(CODE "
         include(BundleUtilities)
         get_filename_component(CMAKE_INSTALL_PREFIX_ABSOLUTE \${CMAKE_INSTALL_PREFIX} ABSOLUTE)
-        fixup_bundle(\"\${CMAKE_INSTALL_PREFIX_ABSOLUTE}/86Box-Next.app\" \"\" \"\")"
+        fixup_bundle(\"\${CMAKE_INSTALL_PREFIX_ABSOLUTE}/86Box-Next2.app\" \"\" \"\")"
     COMPONENT Runtime)
 endif()
 

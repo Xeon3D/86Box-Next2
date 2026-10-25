@@ -1,17 +1,19 @@
 #!/bin/sh
-# Stage the newest 86Box-Next build in Latest/ (repo root, git-ignored).
+# Stage the newest 86Box-Next2 build in Latest/ (repo root, git-ignored).
 # Latest holds one rig per guest OS ("Windows 98 SE", "MS-DOS", ...), each a
 # folder with its own 86box.cfg, nvr/, disk images and roms/: the exe goes
-# into every rig folder that has an 86box.cfg or an 86Box-Next.exe (folders
+# into every rig folder that has an 86box.cfg or an 86Box-Next2.exe (folders
 # with neither are left alone).  Every rig gets whatever files of the global
 # ROM set ($NEXT_ROMS, default ../Roms = F:\Claude\Roms: the 86Box ROM set
 # plus ours -- NVIDIA, Megatouch, ...) its roms/ lacks.
 #
 # The rigs are where the machines being tested live, so this only ever
 # replaces the exe (and, for a dynamic build, its DLLs and Qt plugins) and
-# never deletes anything: 86box.cfg, nvr/, disk images and whatever else is
-# there are left alone.  roms/ only gains missing files, unless
-# --update-roms asks for every file of the global set to be refreshed.
+# never deletes anything but the exe's old name: 86Box-Next.exe, from before
+# the rename to 86Box-Next2, goes once the new exe is in.  86box.cfg, nvr/,
+# disk images and whatever else is there are left alone.  roms/ only gains
+# missing files, unless --update-roms asks for every file of the global set
+# to be refreshed.
 #
 # The default is the static build (build-static: one self-contained exe).  A
 # dynamic build directory also works; then every DLL and Qt plugin it needs
@@ -29,16 +31,16 @@ BUILD=${1:-build-static}
 OUT=Latest  # the rigs: Latest/ in the repo root, git-ignored
 ROMS=${NEXT_ROMS:-../Roms}  # the global ROM set, outside the repo
 UCRT=/c/msys64/ucrt64
-EXE="$BUILD/src/86Box-Next.exe"
+EXE="$BUILD/src/86Box-Next2.exe"
 export PATH="$UCRT/bin:/c/msys64/usr/bin:$PATH"
 
 [ -f "$EXE" ] || { echo "no $EXE - build first" >&2; exit 1; }
 [ -d "$ROMS/machines" ] || { echo "no ROM set in $ROMS" >&2; exit 1; }
-# Only an 86Box-Next running from a rig blocks the copy; test VMs elsewhere
-# (work-* folders) run their own exe copies.
+# Only an 86Box-Next2 (or an old 86Box-Next) running from a rig blocks the
+# copy; test VMs elsewhere (work-* folders) run their own exe copies.
 RIGS_WIN=$(cygpath -w "$(cd "$OUT" && pwd)")
-if ! powershell.exe -NoProfile -Command "\$r = '$RIGS_WIN\'; if (Get-CimInstance Win32_Process -Filter \"Name='86Box-Next.exe'\" | Where-Object { \$_.ExecutablePath -and \$_.ExecutablePath.StartsWith(\$r, 'OrdinalIgnoreCase') }) { exit 1 }" >/dev/null 2>&1; then
-    echo "86Box-Next is running from a rig in $OUT; close it and stage again" >&2
+if ! powershell.exe -NoProfile -Command "\$r = '$RIGS_WIN\'; if (Get-CimInstance Win32_Process -Filter \"Name='86Box-Next2.exe' OR Name='86Box-Next.exe'\" | Where-Object { \$_.ExecutablePath -and \$_.ExecutablePath.StartsWith(\$r, 'OrdinalIgnoreCase') }) { exit 1 }" >/dev/null 2>&1; then
+    echo "86Box-Next2 is running from a rig in $OUT; close it and stage again" >&2
     exit 2
 fi
 # Every rig: a subfolder of Latest with a machine or an exe in it.  A rig
@@ -53,7 +55,7 @@ done
 RIGS=""
 for d in "$OUT"/*/; do
     d=${d%/}
-    if [ -f "$d/86box.cfg" ] || [ -f "$d/86Box-Next.exe" ]; then
+    if [ -f "$d/86box.cfg" ] || [ -f "$d/86Box-Next2.exe" ] || [ -f "$d/86Box-Next.exe" ]; then
         OWNER=$(cat "$d/.stage-branch" 2>/dev/null | tr -d '
 ')
         if [ -n "$OWNER" ] && [ "$OWNER" != "$BRANCH" ]; then
@@ -85,14 +87,15 @@ stage_rig() {
         fi
     done
 
-    strip -o "$RIG/86Box-Next.exe" "$EXE"
+    strip -o "$RIG/86Box-Next2.exe" "$EXE"
+    rm -f "$RIG/86Box-Next.exe"
     if ! ldd "$EXE" | grep -qi '/ucrt64/'; then
         echo "Staged $(git describe --always --dirty) in $RIG (static)"
         return
     fi
 
     # A dynamic build: its Qt plugins and every UCRT64 DLL it pulls in.
-    windeployqt6 --no-translations --no-compiler-runtime --no-system-d3d-compiler         --no-opengl-sw --dir "$RIG" "$RIG/86Box-Next.exe" >/dev/null
+    windeployqt6 --no-translations --no-compiler-runtime --no-system-d3d-compiler         --no-opengl-sw --dir "$RIG" "$RIG/86Box-Next2.exe" >/dev/null
     for i in 1 2 3; do
         find "$RIG" -maxdepth 2 \( -name '*.exe' -o -name '*.dll' \) |
             xargs ldd 2>/dev/null | awk '{print $3}' | grep -i '^/ucrt64/' | sort -u |

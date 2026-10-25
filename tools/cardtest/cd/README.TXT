@@ -1,4 +1,4 @@
-CARDTEST 1.0 - graphics card test CD for 86Box-Next (DOS to Windows 2000)
+CARDTEST 1.0 - graphics card test CD for 86Box-Next2 (DOS to Windows 2000)
 ==========================================================================
 
 What it is
@@ -173,7 +173,7 @@ See its README2.TXT.
 
 Host side
 ---------
-cardtest\host\review.py (on the 86Box-Next host) pulls C:\CTRES from a
+cardtest\host\review.py (on the 86Box-Next2 host) pulls C:\CTRES from a
 VM's disk (FAT; for NTFS guests copy the folder out and pass --dir),
 builds a review page with card / reference / diff pictures and compares
 them with the approved ("golden") results of earlier runs.

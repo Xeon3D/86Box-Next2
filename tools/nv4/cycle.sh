@@ -26,6 +26,6 @@ if [ "$(bash "$T" running)" != "0" ]; then
         exit 1
     fi
 fi
-cp "$here/../../build-static/src/86Box-Next.exe" "$W/" || exit 1
+cp "$here/../../build-static/src/86Box-Next2.exe" "$W/" || exit 1
 bash "$T" start || exit 1
 sleep "${1:-60}"

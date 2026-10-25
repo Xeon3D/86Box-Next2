@@ -11,8 +11,8 @@ if [ "$(running)" != "0" ]; then
     $T cmd "key 1d,01,81,9d"; sleep 1; $T cmd "type u"; sleep 2; $T cmd "type s"; sleep 1; $T cmd "key 1c,9c"
     sleep 25; $T stop >/dev/null
 fi
-for i in $(seq 1 20); do cp "$S/../../build-static/src/86Box-Next.exe" "$NV3_WORK/rig/" 2>/dev/null && break; sleep 1; done
-cmp -s "$S/../../build-static/src/86Box-Next.exe" "$NV3_WORK/rig/86Box-Next.exe" || { echo "could not install the exe" >&2; exit 1; }
+for i in $(seq 1 20); do cp "$S/../../build-static/src/86Box-Next2.exe" "$NV3_WORK/rig/" 2>/dev/null && break; sleep 1; done
+cmp -s "$S/../../build-static/src/86Box-Next2.exe" "$NV3_WORK/rig/86Box-Next2.exe" || { echo "could not install the exe" >&2; exit 1; }
 $T start >/dev/null; sleep 75
 $T cmd "key 1c,9c"; sleep 3                     # network login
 "$S/3dmark.sh"; sleep 15

@@ -221,5 +221,16 @@ Open:
   verify with the GPU: 17000 batches identical to the CPU; async GPU run renders every test.
   Emulation speed over 40 s of Game 1/2 (`tools/nv3/bench.sh`): 81% before the 0x0C change
   (every batch waited for a GDI fill), 99% after (host shading 2.3 s); 2 CPU threads alone: 70%
-  (15.7 s shading). Full GPU run: 1447 3DMarks (guest time, as before). Left: class 0x07 rectangles still sync (~300 GPU
-  waits per 40 s, 50 ms); fills joining the batch as spans (NV4's `nv4_3d_fill`) not done.
+  (15.7 s shading). Full GPU run: 1447 3DMarks (guest time, as before).
+- 2026-10-25 (later): 2D fills join the 3D batch (NV4's `nv4_3d_fill`). Every rectangle (class 0x07,
+  GDI types A/B) goes through `nv3_render_fill`, which calls `nv3_d3d_fill`: a plain store -- a
+  pure-source ROP (0xCC, no blend; ops 9-0x15 only with both pattern alphas set) whose result
+  `nv3_render_fill_value` finds the same over a 16x16 tile (the dither's period) for two opposite
+  destinations, through the real pixel pipeline -- with no clip rectangles, joins when the batch
+  already draws into those surfaces or is large (64K+ pixels) within 2 vblanks of a triangle. A fill
+  state (`fill` = bytes a pixel, surfaces 0-3, the value in the triangle record's c[0] bits; the
+  kernel reads it as a word, not a float) serves every fill into the same surfaces. Anything else
+  waits only if the batch or a batch in flight reaches its rows (`nv3_d3d_touch_rect`); class 0x07
+  no longer syncs at method entry. Verify: 9000 GPU batches with fills identical to the CPU; speed
+  run: no class waits left, GPU waits 0.65 s per 40 s (vertical blank), emulation speed 100%.
+  Left: the Vulkan setup is copied from nv4_pgraph_3d_gpu.c, not shared.

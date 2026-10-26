@@ -222,6 +222,11 @@ MainWindow::MainWindow(QWidget *parent)
     extern MainWindow *main_window;
     main_window = this;
     ui->setupUi(this);
+#ifdef Q_OS_LINUX
+    /* 86Box-Next: keep the menu bar in the window -- a desktop's global menu
+       (KDE Plasma's) would take it away while the window has no focus. */
+    ui->menubar->setNativeMenuBar(false);
+#endif
     status->setSoundMenu(ui->menuSound);
     dynarecMenu = new QMenu(this);
     dynarecMenu->addAction(ui->actionForce_interpretation);

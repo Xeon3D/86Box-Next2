@@ -99,6 +99,7 @@ popd
 %{_datadir}/applications/net.86box.86Box.desktop
 %{_metainfodir}/net.86box.86Box.metainfo.xml
 %{_datadir}/icons/hicolor/*/apps/net.86box.86Box.png
+%{_udevrulesdir}/70-86box-usb-passthrough.rules
 
 # files part of the rom package
 %files roms

@@ -257,6 +257,12 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     install(FILES "${ASSETS_DIR}/net.86box.86Box.metainfo.xml"
         DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/metainfo")
 
+    # 86Box-Next: the udev rule that lets the desktop user open USB devices
+    # for host passthrough (udev reads lib/udev/rules.d, never lib64; under
+    # the /usr prefix packages use -- udev ignores /usr/local).
+    install(FILES "${ASSETS_DIR}/70-86box-usb-passthrough.rules"
+        DESTINATION "lib/udev/rules.d")
+
     # VFIO device preparation helper, and its polkit policy translated from the UI's .po files
     if(VFIO AND VFIO_AVAILABLE)
         install(PROGRAMS "${CMAKE_CURRENT_SOURCE_DIR}/device/vfio-setup.sh"

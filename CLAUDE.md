@@ -67,7 +67,10 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   high-bandwidth endpoints included; no siTDs -- full-speed devices use the companion),
   high-speed devices shown at full speed on USB 1.1 ports (`usb_speed.c`) -- the
   VMware-style connect prompt and USB menu in `src/qt/qt_usb_manager.cpp`, and an
-  activity trace (USB menu / BOX86NEXT_USB_TRACE=1) to usb_trace.txt.
+  activity trace (USB menu / BOX86NEXT_USB_TRACE=1) to usb_trace.txt. Linux: the device nodes are
+  root's, so passthrough needs `src/unix/assets/70-86box-usb-passthrough.rules` (`uaccess` for every
+  USB device; installed in lib/udev/rules.d, by hand in /etc/udev/rules.d); a LIBUSB_ERROR_ACCESS
+  open says so, naming the node.
   Tests: `tests/usb/` (plain C, no framework). Upstream's `src/usb.c` is the
   southbridge stub and is untouched.
 - COM port modems (`src/char/char_modem.c`, PeepeeBox's): Diamond SupraExpress 56e PRO,

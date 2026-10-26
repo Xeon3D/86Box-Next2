@@ -1,0 +1,11 @@
+# 86Box-Next: host USB passthrough (src/usb/usb_host.c) opens devices through
+# libusb, which needs write access to /dev/bus/usb/BBB/DDD.  Those nodes are
+# root's; this rule tags every USB device "uaccess", so systemd-logind gives
+# the user at the local seat access to it, as it does for sound cards and
+# webcams.  It must sort before 73-seat-late.rules, which applies the tag.
+#
+# Installed in /usr/lib/udev/rules.d by `cmake --install`; by hand:
+#   sudo cp 70-86box-usb-passthrough.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload
+# then plug the device in again.
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", TAG+="uaccess"

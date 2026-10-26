@@ -1359,7 +1359,9 @@ usbn_host_open(uint16_t vid, uint16_t pid, char *err, int errlen)
         return NULL;
     }
 
-    int speed = map_speed(libusb_get_device_speed(found));
+    int     speed = map_speed(libusb_get_device_speed(found));
+    uint8_t bus   = libusb_get_bus_number(found);
+    uint8_t addr  = libusb_get_device_address(found);
 
     hd = calloc(1, sizeof(host_dev_t));
     r  = libusb_open(found, &hd->h);
@@ -1372,8 +1374,21 @@ usbn_host_open(uint16_t vid, uint16_t pid, char *err, int errlen)
             snprintf(err, errlen, "it could not be opened (%s). Install UsbDk (github.com/daynix/UsbDk) once to pass any device through, "
                                   "or give this device the WinUSB driver with Zadig (zadig.akeo.ie)", libusb_error_name(r));
 #else
-        snprintf(err, errlen, "it could not be opened (%s); check the permissions on its device node", libusb_error_name(r));
+#    ifdef __linux__
+        /* 86Box-Next: USB device nodes are root's unless a udev rule says
+           otherwise; ours ships in src/unix/assets. */
+        if (r == LIBUSB_ERROR_ACCESS)
+            snprintf(err, errlen, "your user may not open its device node, /dev/bus/usb/%03u/%03u (%s). "
+                                  "Install the udev rule 70-86box-usb-passthrough.rules from 86Box-Next2's "
+                                  "src/unix/assets in /etc/udev/rules.d, run \"sudo udevadm control --reload\" "
+                                  "and plug the device in again",
+                     bus, addr, libusb_error_name(r));
+        else
+#    endif
+            snprintf(err, errlen, "it could not be opened (%s); check the permissions on its device node", libusb_error_name(r));
 #endif
+        (void) bus;
+        (void) addr;
         free(hd);
         return NULL;
     }

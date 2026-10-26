@@ -89,3 +89,5 @@ CMakeLists.txt.user
 # 86Box-Next2: the owner's test rigs (tools/stage-rig.sh, tools/make-release.sh)
 /Latest/
 /Releases-archive/
+# 86Box-Next2: the newest build's archives (cmake/LatestVersions.cmake)
+/LatestVersions/

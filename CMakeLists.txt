@@ -279,3 +279,40 @@ if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/isp-server/CMakeLists.txt)
     message(FATAL_ERROR "isp-server/ is a git submodule: run `git submodule update --init` first")
 endif()
 add_subdirectory(isp-server)
+
+# 86Box-Next: LatestVersions/ (repository root, git-ignored) always holds an
+# archive of the newest 86Box-Next2 and isp-server, remade after every build
+# (cmake/LatestVersions.cmake).  On by default for the builds that are handed
+# around: Qt builds on Linux, static Qt builds on Windows -- not a dynamic
+# Windows build (its DLLs are not packed) nor a test tree (no Qt).
+if(QT AND NOT APPLE AND (NOT WIN32 OR STATIC_BUILD))
+    set(LATEST_VERSIONS_DEFAULT ON)
+else()
+    set(LATEST_VERSIONS_DEFAULT OFF)
+endif()
+option(LATEST_VERSIONS "Archive the newest builds in LatestVersions/" ${LATEST_VERSIONS_DEFAULT})
+if(LATEST_VERSIONS)
+    if(WIN32)
+        set(LATEST_VERSIONS_SUFFIX win64)
+        set(LATEST_VERSIONS_FORMAT zip)
+    else()
+        string(TOLOWER "${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}" LATEST_VERSIONS_SUFFIX)
+        set(LATEST_VERSIONS_FORMAT gnutar)
+    endif()
+    add_custom_target(latest_versions ALL
+        COMMAND ${CMAKE_COMMAND}
+                -DOUT=${CMAKE_CURRENT_SOURCE_DIR}/LatestVersions
+                -DSTAGE=${CMAKE_CURRENT_BINARY_DIR}/latest-versions-stage
+                -DSRC=${CMAKE_CURRENT_SOURCE_DIR}
+                -DEMU=$<TARGET_FILE:86Box>
+                -DISP=$<TARGET_FILE:isp-server>
+                -DCOPYING=${CMAKE_CURRENT_SOURCE_DIR}/COPYING
+                -DHEADER=${CMAKE_CURRENT_BINARY_DIR}/src/include/86box/next_build.h
+                -DSTRIP=${CMAKE_STRIP}
+                -DSUFFIX=${LATEST_VERSIONS_SUFFIX}
+                -DFORMAT=${LATEST_VERSIONS_FORMAT}
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/LatestVersions.cmake
+        VERBATIM
+    )
+    add_dependencies(latest_versions 86Box isp-server)
+endif()

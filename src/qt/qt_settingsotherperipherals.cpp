@@ -51,6 +51,7 @@ extern "C" {
 
 #include "qt_settings_completer.hpp"
 
+#include "qt_usb_manager.hpp"
 #include "qt_settingsotherperipherals.hpp"
 #include "qt_settingspcmcia.hpp"
 #include "ui_qt_settingsotherperipherals.h"
@@ -642,6 +643,10 @@ SettingsOtherPeripherals::updateUSBHint()
 
     if (!machine_has_bus(machineId, MACHINE_BUS_PCI))
         text = tr("The USB controller is a PCI card, and this machine has no PCI slot. Choose a machine with PCI slots on the Machine page to fit one.");
+    else if (UsbManager::machineHasOnboardUsb(machineId))
+        text = (ui->comboBoxUSB->currentData().toInt() > 0)
+                   ? tr("This motherboard has its own USB controller, and it has the two USB ports: a USB card would have none. Leave this at None.")
+                   : tr("This motherboard has its own USB controller, with the two USB ports; no card is needed.");
     else if (!usbn_host_available())
         text = tr("This build has no USB passthrough, so devices on the host cannot be connected.");
 
@@ -916,6 +921,21 @@ int
 SettingsOtherPeripherals::pcmciaCard(int s) const
 {
     return pcmcia->socketCard(s);
+}
+
+int
+SettingsOtherPeripherals::usbCard() const
+{
+    return machine_has_bus(machineId, MACHINE_BUS_PCI) ? ui->comboBoxUSB->currentData().toInt() : 0;
+}
+
+void
+SettingsOtherPeripherals::on_comboBoxUSB_currentIndexChanged(int index)
+{
+    if (index < 0)
+        return;
+    updateUSBHint();
+    emit usbCardChanged();
 }
 
 #ifdef USE_VFIO

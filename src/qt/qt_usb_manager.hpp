@@ -37,6 +37,13 @@ public:
     /* The machine may have gained or lost its controller. */
     void refresh();
 
+    /* A controller has the USB ports: a USB card's, or the motherboard's. */
+    static bool fitted();
+    /* A board whose southbridge has a USB controller (PIIX3/4, VIA, ALi,
+       SiS, SMSC, STPC) with USB connectors -- for Settings, before the
+       machine is built. */
+    static bool machineHasOnboardUsb(int machineId);
+
     /* The USB menu, behind the USB icon in the status bar. */
     QMenu  *usbMenu() const { return menu; }
     QString toolTip() const;

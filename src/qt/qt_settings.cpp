@@ -34,6 +34,7 @@ extern "C" {
 #include <86box/video.h>
 #include <86box/timer.h>
 #include <86box/fdd.h>
+#include <86box/usb_next.h>
 #include <86box/hdd.h>
 #include <86box/hdc.h>
 #include <86box/sound.h>
@@ -282,6 +283,11 @@ Settings::ensurePage(int index)
                 placePage(PAGE_OTHER, otherPeripherals);
                 connect(machine, &SettingsMachine::currentMachineChanged, otherPeripherals,
                         &SettingsOtherPeripherals::onCurrentMachineChanged);
+                /* 86Box-Next: Input offers the USB keyboard and mouse only with a USB controller. */
+                connect(otherPeripherals, &SettingsOtherPeripherals::usbCardChanged, this, [this] {
+                    if (input != nullptr)
+                        input->onUsbCardChanged();
+                });
                 if (machineId != ::machine)
                     otherPeripherals->onCurrentMachineChanged(machineId);
             }
@@ -344,6 +350,14 @@ Settings::currentPcmciaCard(int s) const
     if (otherPeripherals != nullptr)
         return otherPeripherals->pcmciaCard(s);
     return pcmcia_enabled ? pcmcia_card_type[s] : 0;
+}
+
+int
+Settings::currentUsbCard() const
+{
+    if (otherPeripherals != nullptr)
+        return otherPeripherals->usbCard();
+    return usb_card_type;
 }
 
 void

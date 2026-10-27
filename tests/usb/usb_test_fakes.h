@@ -28,6 +28,9 @@ uint32_t fake_mmio_rl(uint32_t off);
 void     fake_mmio_wl(uint32_t off, uint32_t val);
 extern uint32_t fake_mmio_base;
 
+/* ports 60h/64h as the CPU reaches them: returns 1 for a trapped cycle (kept from the KBC) */
+int fake_port_access(uint16_t port, int write, uint8_t val);
+
 /* frame timers: every controller's, in the order they were added */
 void fake_frames(int n);
 

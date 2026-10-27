@@ -67,12 +67,107 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   high-bandwidth endpoints included; no siTDs -- full-speed devices use the companion),
   high-speed devices shown at full speed on USB 1.1 ports (`usb_speed.c`) -- the
   VMware-style connect prompt and USB menu in `src/qt/qt_usb_manager.cpp`, and an
-  activity trace (USB menu / BOX86NEXT_USB_TRACE=1) to usb_trace.txt. Linux: the device nodes are
+  activity trace (USB menu / BOX86NEXT_USB_TRACE=1) to usb_trace.txt. The PIIX3's and PIIX4's own USB
+  functions (82371SB function 2, 8086:7020 rev 01h; 82371AB/EB 8086:7112) are this UHCI too
+  (`uhci_onboard_create()`, made by `intel_piix.c` for types 3 and 4; the other southbridges go
+  through `usb_chipset.c`, below): its PCI space through `uhci_pci_read/write`, its interrupt on PIRQD
+  (`PCI_IIRQ_BASE | PCI_INTD`), and LEGSUP (C0h) working -- traps on 60h/64h that keep a trapped cycle
+  from the KBC (`io_set_claim()` in `io.c`: a read floats, the SMI follows the instruction; Intel's
+  VS440FX handler gives up on a command when it finds the KBC's input buffer full, and the KBC's answer
+  then raised IRQ1 and was taken for a key), SMI on the USB interrupt, USBPIRQDEN,
+  the A20GATE pass-through sequence -- each event asserting SMI# through CSMIGATE, held until the gate
+  reopens if it is closed, and setting SMIREQ bit 8 (ABh bit 0) only when SMIEN bit 8 (A3h bit 0) is on
+  (`piix_usb_legacy_smi()`): the datasheet makes SMIEN bit 8 the enable, but the ECS P5VX-B's Award BIOS
+  (1.5c) never sets it nor clears RLUSB and needs the SMI (a stuck RLUSB re-raised SMI at every gate
+  reopening and hung POST). Its USB keyboard works in POST and setup (Del, arrows) with no PS/2 keyboard.
+  The UHCI raises USBINT for an inactive TD with IOC met in the schedule (real controllers do; that BIOS
+  keeps one in frame 0 as its SMI timer, Linux's uhci-hcd its term TD). A TD with MaxLen 500h-7FEh is a
+  process error: HCPE, halted, Run/Stop cleared, an interrupt whatever USBINTR says, and FRNUM stays, so a
+  restart meets it again (the VS440FX's BIOS ticks on that; with FRNUM moving on its POST crawled for
+  minutes). RLUSB is a status only for the
+  gate's reopening (AMI never clears it: counting it as pending re-entered their SMM handler forever).
+  The PIIX4 (`piix4_usb_legacy_smi()`) raises the SMI through its power management (GLBCTL SMI_EN) with
+  GLBSTS bit 1 (LEGACY_USB_STS) set, not gated on GLBEN bit 0 (the P6KDI's AMI BIOS never sets it); that
+  bit follows LEGSUP (cleared when no enabled event is left, the UHCI's `legacy_smi(priv, 0)`), a write
+  does not clear it (`acpi.c`) and GLBCTL's end of SMI re-raises while it is set: the Phoenix 4.0 R6.0
+  BIOSes of Intel's boards (SE440BX-2, AN430TX, RadiSys EM440, HP Pavilion 85xx) looped in SMM forever
+  on a latched one, and lost the USB interrupt to a wholesale GLBSTS clear. PIIX4 USB register FFh bit 4
+  is the RTC index read-back (`nvr_read_addr_set()`), as upstream's stub has it.
+  AMI's 1995-97 USB keyboard code (Biostar MB-8500TUC/TVX-A, AOpen AP5VM/AP53, FIC KN-6000, AIR P6KDI:
+  verified, keys reach the BIOS after POST -- it starts USB at the end of POST, after its DEL prompt, so
+  setup is out of reach by design) needs the HID devices low speed, the HID descriptor after the endpoint
+  (it takes the descriptor after a boot interface for its endpoint) and HID class requests sent to the
+  endpoint (bmRequestType 22h/A2h, SET_PROTOCOL/SET_IDLE/SET_REPORT) taken as the interface's. The KN-6000
+  and P6KDI never supported the Pentium Pro (their BIOSes install no SMM with it: use a Pentium II); the
+  P6KDI has a PIIX4, not a PIIX3 (its BIOSes' tables are the PIIX4's and their USB code looks for
+  8086:7112). The VS440FX (USB Legacy in Advanced > Peripheral Configuration, off by default) works after
+  POST; the SE440BX-2 and EM440 reach setup / their F1 prompt; the AN430TX's handler injects a key with
+  D2h and reads it back itself: open. The ports have one owner: `usbn_set_root()` refuses a
+  second controller (the onboard one is made first, so a card on a PIIX3/PIIX4 board gets none; Other
+  peripherals says so), releases only for its owner, and `usbn_apply(priv)` runs for the owner only.
+  The USB menu/icon show with any controller (`UsbManager::fitted()`); Settings knows an onboard-USB board
+  by chipset 430HX/VX/TX or 440FX/LX/EX/BX/ZX/GX with `MACHINE_USB` (`UsbManager::machineHasOnboardUsb()`;
+  the Virtual PC 2007's PIIX4E without USB lacks it). debug_cmd `peekr addr [len]` reads RAM itself (SMRAM
+  included), `wpr addr` watches RAM itself (not what the CPU sees there). Tests:
+  `tests/usb/usb_piix3_test.c` (Usb.piix3). Emulated keyboard and mouse
+  (`src/usb/usb_hid.c`): "USB Keyboard" / "USB Mouse" in Settings > Input devices' keyboard and mouse
+  lists (`keyboard_type`/`mouse_type` "usb", `KEYBOARD_TYPE_USB`, `keyboard_usb_device` /
+  `mouse_usb_device` with no init), offered only while Other peripherals has a USB controller on a PCI
+  machine or the board has the PIIX3's (`Settings::currentUsbCard()`, `usbCardChanged`; without one the list falls back to the
+  machine's PS/2 or AT keyboard); hard reset. USB only, as a real machine: the keyboard controller gets
+  no keyboard (`keyboard_add_device()`; a BIOS without USB support says so) and there is no other mouse.
+  Two separate low-speed devices, never one composite (Windows 98 got neither working from the composite
+  one): VID 86B0, PID 1 the keyboard, PID 2 the mouse, each a HID boot interface on EP 81, plugged by
+  `usbn_hid_attach()` after `usb_card_reset()` into the first ports the remembered host devices left free
+  (both take both ports). HID class requests to endpoint 0 or 1 and GET_DESCRIPTOR(HID/report) asked of
+  the endpoint are the interface's: Windows 98 SE, finding the HID descriptor after the endpoint's, sends
+  SET_IDLE to endpoint 0 and asks the endpoint for the report descriptor (stalling them made it drop both
+  devices); verified there with both together (P5VX-B rig). Their Configure options are the PS/2 ones: the keyboard's "keys" (101 ANSI, 102
+  ISO, 106 JIS, 103 KSC, 104 ABNT2: the HID country code, and the layout's own keys -- ISO 64h, JIS
+  87h-8Bh, KSC Hangul/Hanja 90h/91h, ABNT2 87h/85h -- are dropped on other layouts) and the mouse's
+  "buttons" (2, 3, 4 wheel, 5 five + wheel, 6 five + AC Pan; the report descriptor follows, and
+  `mouse_set_buttons()` gets the value as from a PS/2 mouse). Every key goes to
+  `usbn_hid_key()` (a locked queue, UI thread to emulation thread), dropped unless the guest drives the
+  keyboard (configured, endpoint polled in the last 500 ms, `hid_frame()`); the mouse takes the motion
+  when polled. SET_REPORT LEDs go to `keyboard_update_states()`.
+  Tests: `tests/usb/usb_hid_test.c` (Usb.hid). Linux: the device nodes are
   root's, so passthrough needs `src/unix/assets/70-86box-usb-passthrough.rules` (`uaccess` for every
   USB device; installed in lib/udev/rules.d, by hand in /etc/udev/rules.d); a LIBUSB_ERROR_ACCESS
   open says so, naming the node.
-  Tests: `tests/usb/` (plain C, no framework). Upstream's `src/usb.c` is the
-  southbridge stub and is untouched.
+  The other southbridges' USB (2026-10-27): upstream's wiring as it is -- the `via_pipc.c`, `ali1543.c`,
+  `sis_5513_p2i.c`, `sis_5571_h2p.c`, `sis_5572_usb.c`, `sis_5581_h2p.c`, `stpc.c` and `sis_55xx.h` changes
+  of upstream's 5da7f19dc/75306e7b2 (skiretic's USB stack, 86Box/86Box#8527), its `src/usb_legacy.c` (VIA's
+  LEGSUP) and `usb.h` verbatim, its per-port `io_set_claim(port, ...)`, and 226d3a1e1's `pci.c` (PIRQ
+  re-routing, a southbridge's PIRQ on the I/O APIC), `kbc_at.c` and `acpi.c` (all but the SiS 5582
+  power-on hunk) -- so those files merge cleanly at the sync. Behind it, our controllers: `usb_chipset.c`
+  implements usb.h (`usb_device`, `uhci_update_io_mapping()`, `ohci_update_mem_mapping()`, the IRQ/SMI/
+  bus-master/present/chip-flag/NDP calls); a `usb_t` becomes our UHCI (`uhci_chipset_create()`: the
+  southbridge owns its PCI space and routes its interrupt) or our OHCI the first time it is used as one.
+  Upstream's own USB stack (`src/usb.c`, `usb_dev.c/.h`, `usb_hid.c`, `usb_hub.c`, `usb_msd.c`,
+  `usb_audio.c`, `usb_card*.c`) is removed and sync-upstream.yml keeps it so (KEEP_DELETED); `usb.h` and
+  `usb_legacy.c` are KEEP_OURS (usb_chipset.c implements that API: a southbridge change upstream that
+  needs a new usb.h call fails to build here until ported). Upstream's other USB edits (keyboard.c,
+  mouse.c, config.c, 86box.c, the Qt pages, src/CMakeLists.txt) still conflict once and are merged by hand.
+  VIA 586B/596A/596B/686A/686B (two UHCIs on the 686: the first made takes the ports;
+  `uhci_set_present(0)` on the owner moves them, devices and all, to the other -- `usbn_move_root()`),
+  ALi M1543/C (M5237, NDP 2 or 3), SiS 5571/5582/5595 (7001), SMSC SLC90E66 (`intel_piix.c` type 5, nPIRQD,
+  its SMI -> GLBSTS USB_STS, `acpi_set_usb_sts_w1c()`), STPC Atlas. The OHCI (`src/usb/usb_ohci.c`,
+  OpenHCI 1.0a): 4 KB window, root hub with global/per-port power switching, reset (10 ms), selective
+  suspend/resume (23 ms), USBRESET/RESUME/OPERATIONAL/SUSPEND (5 ms settling before a wakeup), control/bulk
+  lists with ControlBulkServiceRatio and the Filled bits, periodic list from PeriodicStart (interrupt and
+  isochronous EDs), general TDs (page crossing, toggles, BufferRounding, halts) and isochronous TDs (PSWs),
+  done queue with DelayInterrupt, INT/SMI with InterruptRouting and OwnershipChange, HCE* legacy
+  registers (registers only, as upstream), upstream's `OHCI_CHIP_*` quirks. Card: OPTi 82C861 FireLink
+  (`usb_opti861.c`, upstream's PCI side, `usb_ohci_opti`). Settings knows an onboard controller by
+  `MACHINE_USB` + `MACHINE_BUS_USB` (upstream made them follow the southbridge). Timing, both
+  controllers: every transaction charged its USB 1.1 bus time (`usbn_bus_ns()`, 5.11.3), a frame of
+  FrameInterval + 1 (OHCI) / 11936 + SOFMOD (UHCI) bit times; a NAKed TD is asked again until the time
+  runs out. UHCI also: no transaction past the preSOF point (MAXP), EOF babble (port disabled unless VIA's
+  Rx40 bit 6), software debug mode (one TD, then halted; Run/Stop resumes in the same frame), remote
+  wakeup (`usbn_remote_wakeup()`: FGR + RD in global suspend, PORTSC RD on a suspended port; the OHCI's
+  RD/port resume). The USB keyboard advertises remote wakeup (bmAttributes A0h, DEVICE_REMOTE_WAKEUP);
+  a key while the guest let it sleep wakes the bus and is not delivered.
+  Tests: `tests/usb/` (plain C, no framework; Usb.ohci, Usb.chipset too).
 - COM port modems (`src/char/char_modem.c`, PeepeeBox's): Diamond SupraExpress 56e PRO,
   ELSA MicroLink 56k and a Standard Hayes-compatible 56k Modem (`modem_hayes`: generic ATI
   answers matching none of funworld's rows, data/fax, no voice), chosen as a COM port's device

@@ -560,7 +560,7 @@ ehci_frame(void *priv)
     ehci_t *dev = (ehci_t *) priv;
 
     timer_on_auto(&dev->frame_timer, 1000.0);
-    usbn_apply();
+    usbn_apply(dev);
 
     if (!(dev->cmd & CMD_RS))
         return;
@@ -905,8 +905,8 @@ ehci_init(const device_t *info)
     timer_add(&dev->frame_timer, ehci_frame, dev, 0);
     timer_on_auto(&dev->frame_timer, 1000.0);
 
-    usbn_set_root(&ehci_root_ops, dev, 1);
-    usbn_restore_ports();
+    if (usbn_set_root(&ehci_root_ops, dev, 1))
+        usbn_restore_ports();
     return dev;
 }
 
@@ -917,7 +917,7 @@ ehci_close(void *priv)
 
     for (int p = 0; p < USBN_PORTS; p++)
         uhci_route_port(dev->uhci, p, NULL);
-    usbn_set_root(NULL, NULL, 0);
+    usbn_set_root(NULL, dev, 0);
     uhci_companion_close(dev->uhci);
     free(dev);
 }

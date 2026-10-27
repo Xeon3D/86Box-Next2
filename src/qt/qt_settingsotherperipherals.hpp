@@ -27,6 +27,7 @@ public:
 
     int  changed();
     int  pcmciaCard(int s) const;   /* the PC Card chosen for socket s now */
+    int  usbCard() const;           /* the USB controller chosen now */
 
     void restore();
     void save(int soft);
@@ -34,7 +35,11 @@ public:
 public slots:
     void onCurrentMachineChanged(int machineId);
 
+signals:
+    void usbCardChanged();
+
 private slots:
+    void on_comboBoxUSB_currentIndexChanged(int index);
     void on_comboBoxRTC_currentIndexChanged(int index);
     void on_pushButtonConfigureRTC_clicked();
     void on_comboBoxIOBoard_currentIndexChanged(int index);

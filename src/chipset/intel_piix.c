@@ -45,6 +45,7 @@
 #include <86box/hdc_ide.h>
 #include <86box/hdc_ide_sff8038i.h>
 #include <86box/usb.h>
+#include <86box/usb_next.h>
 #include <86box/lpt.h>
 #include <86box/machine.h>
 #include <86box/smbus.h>
@@ -78,6 +79,10 @@ typedef struct _piix_ {
     nvr_t         *nvr;
     ddma_t        *ddma;
     usb_t         *usb;
+    uhci_t        *uhci;   /* 86Box-Next: the PIIX3's USB function, a working UHCI */
+    uint8_t        usb_smi_pending;   /* a USB legacy SMI that came with the SMI gate closed */
+    uint8_t        usb_irq_state;     /* the SLC90E66's OHCI on nPIRQD */
+    uint8_t        usb_smi_level;     /* the SLC90E66's OHCI SMI output last seen */
     acpi_t        *acpi;
     piix_io_trap_t io_traps[26];
     port_92_t     *port_92;
@@ -515,6 +520,95 @@ piix_extsmi_raise(void)
         smi_raise();
 }
 
+/* 86Box-Next: the PIIX3's USB legacy keyboard support (function 2's
+   LEGSUP) asks for an SMI: SMI# through the SMI gate (SMICNTL bit 0) --
+   held until the gate opens if it is closed (the BIOS's own SMI handler
+   closes it) -- and SMIREQ bit 8 (ABh bit 0, RLUSB) when SMIEN bit 8 (A3h
+   bit 0) is on.  The datasheet makes SMIEN bit 8 the SMI's enable, but the
+   Award BIOS of the ECS P5VX-B never sets it, never clears RLUSB, and its
+   USB keyboard support depends on this SMI: LEGSUP's own enables are taken
+   as enough.  RLUSB is a status only (AMI's BIOSes never clear it): the
+   gate's reopening re-raises an SMI only for a request it held back. */
+static void
+piix_usb_legacy_smi(void *priv, int event)
+{
+    piix_t  *dev   = (piix_t *) priv;
+    uint8_t *fregs = (uint8_t *) dev->regs[0];
+
+    if (!event)
+        return;
+
+    usbn_trace("PIIX3: USB legacy SMI: SMIEN bit 8 %d, CSMIGATE %d", fregs[0xa3] & 0x01, fregs[0xa0] & 0x01);
+    if (fregs[0xa3] & 0x01)
+        fregs[0xab] |= 0x01;
+    if (fregs[0xa0] & 0x01)
+        smi_raise();
+    else
+        dev->usb_smi_pending = 1;
+}
+
+/* 86Box-Next: the PIIX4's, through its power management: an SMI while
+   GLBCTL's SMI_EN is on, and GLBSTS bit 1 (LEGACY_USB_STS) set.  As on the
+   PIIX3, LEGSUP's own enables are taken as enough: the P6KDI's AMI BIOS,
+   written for the PIIX4, never sets GLBEN bit 0 (LEGACY_USB_EN) and waits
+   for this SMI.  The status follows LEGSUP: it clears once LEGSUP has no
+   enabled event left.  The Phoenix BIOSes of Intel's boards (SE440BX-2,
+   AN430TX) never write it and service USB until it is clear, so a latched
+   one kept their SMM handler looping forever.  With GLBCTL EOS (bit 16)
+   clear -- an SMI handler running -- only the status is set: the SMI follows
+   when the handler sets EOS again with the status still set (PIIX4 11.5.1,
+   acpi.c's GLBCTL write), so a BIOS that leaves it set gets one SMI per
+   handler exit, not one per event. */
+static void
+piix4_usb_legacy_smi(void *priv, int event)
+{
+    piix_t *dev = (piix_t *) priv;
+
+    if (!event) {
+        dev->acpi->regs.glbsts &= ~0x0002;
+        return;
+    }
+    usbn_trace("PIIX4: USB legacy SMI: GLBEN %04X GLBCTL %08X", dev->acpi->regs.glben, dev->acpi->regs.glbctl);
+    dev->acpi->regs.glbsts |= 0x0002;
+    if (dev->acpi->regs.glbctl & 0x00010000)
+        acpi_raise_smi(dev->acpi, 1);
+}
+
+/* The SLC90E66's OHCI interrupts on the chip's own nPIRQD, with no enable
+   of its own (SMSC SLC90E66 pin description, p. 24 / PDF 24). */
+static void
+slc90e66_usb_irq(void *priv, int level)
+{
+    piix_t *dev = (piix_t *) priv;
+
+    if (level)
+        pci_set_iirq(PCI_INTD, &dev->usb_irq_state);
+    else
+        pci_clear_iirq(PCI_INTD, &dev->usb_irq_state);
+}
+
+/* The OHCI's SMI output is the SLC90E66's legacy USB event. A rising edge
+   sets GLBSTS USB_STS (bit 1) and asserts nSMI when GLBEN USB_EN (bit 0)
+   and GLBCTL EOS are both set; with EOS clear, the nSMI follows when the
+   handler sets EOS (SMSC SLC90E66 7.3.10 and 7.3.12, p. 143-144 /
+   PDF 143-144; 11.4.1, p. 243-244 / PDF 243-244). */
+static void
+slc90e66_usb_smi(void *priv, int level)
+{
+    piix_t *dev = (piix_t *) priv;
+
+    if (level && !dev->usb_smi_level && (dev->acpi != NULL)) {
+        dev->acpi->regs.glbsts |= 0x0002;
+        if ((dev->acpi->regs.glben & 0x0001) && (dev->acpi->regs.glbctl & 0x00010000))
+            acpi_raise_smi(dev->acpi, 1);
+    }
+    dev->usb_smi_level = !!level;
+}
+
+/* 86Box-Next: the PIIX3's USB function, as the specification update gives
+   the B-0 stepping (revision 01h). */
+static const usbn_pci_id_t piix3_usb_id = { 0x8086, 0x7020, 0x01, 0x0000, 0x0000 };
+
 static void
 piix_write(int func, int addr, UNUSED(int len), uint8_t val, void *priv)
 {
@@ -546,6 +640,17 @@ piix_write(int func, int addr, UNUSED(int len), uint8_t val, void *priv)
     /* Ignore the new IDE BAR's on the Intel chips. */
     if ((dev->type < 5) && (func == 1) && (addr >= 0x10) && (addr <= 0x1f))
         return;
+
+    /* 86Box-Next: the PIIX3's USB function is the UHCI's own. */
+    if ((func == 2) && dev->uhci) {
+        uhci_pci_write(0, addr, 1, val, dev->uhci);
+        /* The PIIX4's FFh bit 4 makes the RTC index readable at 70h: the
+           SE440BX-2's SMM handler sets it to save the index, and puts it
+           back before RSM. */
+        if ((dev->type == 4) && (addr == 0xff))
+            nvr_read_addr_set(!!(val & 0x10), dev->nvr);
+        return;
+    }
 
     piix_log("PIIX function %i write: %02X to %02X\n", func, val, addr);
     fregs = (uint8_t *) dev->regs[func];
@@ -735,8 +840,14 @@ piix_write(int func, int addr, UNUSED(int len), uint8_t val, void *priv)
 
                     fregs[addr] = val & 0x1f;
                     apm_set_do_smi(dev->apm, !!(val & 0x01) && !!(fregs[0xa2] & 0x80));
-                    if ((val & 0x01) && !(old & 0x01) && fregs[0xaa])
+                    /* 86Box-Next: and a USB legacy SMI that came with the gate
+                       closed.  Not RLUSB (ABh bit 0) left set: AMI's BIOSes (the
+                       Biostar MB-8500TUC's) never clear it, and taking it for a
+                       pending SMI re-entered their handler at every reopening. */
+                    if ((val & 0x01) && !(old & 0x01) && (fregs[0xaa] || dev->usb_smi_pending))
                         smi_raise();
+                    if (val & 0x01)
+                        dev->usb_smi_pending = 0;
                     switch ((val & 0x18) >> 3) {
                         case 0x00:
                             dev->fast_off_period = PCICLK * 32768.0 * 60000.0;
@@ -1022,6 +1133,7 @@ piix_write(int func, int addr, UNUSED(int len), uint8_t val, void *priv)
                 if (dev->type > 4) {
                     fregs[0x04] = (val & 7);
                     ohci_update_mem_mapping(dev->usb, fregs[0x11], fregs[0x12], fregs[0x13], fregs[PCI_REG_COMMAND] & PCI_COMMAND_MEM);
+                    ohci_set_bus_master(dev->usb, fregs[PCI_REG_COMMAND] & PCI_COMMAND_L_BM);
                 } else {
                     fregs[0x04] = (val & 5);
                     uhci_update_io_mapping(dev->usb, fregs[0x20] & ~0x1f, fregs[0x21], fregs[PCI_REG_COMMAND] & PCI_COMMAND_IO);
@@ -1271,6 +1383,8 @@ piix_read(int func, int addr, UNUSED(int len), void *priv)
                                     !(dev->no_usb && (func == 2))) {
         fregs = (uint8_t *) dev->regs[func];
         ret   = fregs[addr];
+        if ((func == 2) && dev->uhci)   /* 86Box-Next: the UHCI's own */
+            ret = uhci_pci_read(0, addr, 1, dev->uhci);
 
         piix_log("PIIX function %i read: %02X from %02X\n", func, ret, addr);
     }
@@ -1285,6 +1399,10 @@ piix_reset_hard(piix_t *dev)
 
     sff_bus_master_reset(dev->bm[0]);
     sff_bus_master_reset(dev->bm[1]);
+
+    /* 86Box-Next: the PIIX3's USB function, as at power-up. */
+    if (dev->uhci)
+        uhci_onboard_reset(dev->uhci);
 
     if (dev->type >= 4) {
         sff_set_slot(dev->bm[0], dev->pci_slot);
@@ -1529,6 +1647,7 @@ piix_reset(void *priv)
     } else {
         dev->irq_state    = 0;
         dev->regs[0][0xaa] = dev->regs[0][0xab] = 0;
+        dev->usb_smi_pending = 0;
         piix_write(0, 0xa0, 1, 0x08, priv);
         piix_write(0, 0xa2, 1, 0x00, priv);
         piix_write(0, 0xa4, 1, 0x00, priv);
@@ -1537,6 +1656,10 @@ piix_reset(void *priv)
         piix_write(0, 0xa7, 1, 0x00, priv);
         piix_write(0, 0xa8, 1, 0x0f, priv);
     }
+
+    /* 86Box-Next: PCIRST# resets the PIIX3's USB function too. */
+    if (dev->uhci)
+        uhci_onboard_reset(dev->uhci);
 
     /* Disable the PIC mouse latch. */
     piix_write(0, 0x4e, 1, 0x03, priv);
@@ -1649,6 +1772,9 @@ piix_close(void *priv)
     for (int i = 0; i < (sizeof(dev->io_traps) / sizeof(dev->io_traps[0])); i++)
         io_trap_remove(dev->io_traps[i].trap);
 
+    if (dev->uhci)
+        uhci_onboard_close(dev->uhci);
+
     free(dev);
 }
 
@@ -1709,8 +1835,21 @@ piix_init(const device_t *info)
     else
         sff_set_irq_mode(dev->bm[1], IRQ_MODE_MIRQ_0);
 
-    if ((dev->type >= 3) && !dev->no_usb)
+    /* 86Box-Next: the PIIX3's and PIIX4's USB function is a working UHCI,
+       with its legacy keyboard support; the SMSC's is an OHCI (usb_device,
+       src/usb/usb_chipset.c) on its nPIRQD, its SMI the legacy USB event. */
+    if ((dev->type == 3) && !dev->no_usb)
+        dev->uhci  = uhci_onboard_create(&piix3_usb_id, piix_usb_legacy_smi, dev);
+    else if ((dev->type == 4) && !dev->no_usb) {
+        const usbn_pci_id_t piix4_usb_id = { 0x8086, (dev->func0_id & 0xff00) | ((dev->func0_id + (2 << dev->func_shift)) & 0xff),
+                                             dev->rev & 0x07, 0x0000, 0x0000 };
+
+        dev->uhci  = uhci_onboard_create(&piix4_usb_id, piix4_usb_legacy_smi, dev);
+    } else if ((dev->type >= 3) && !dev->no_usb) {
         dev->usb   = device_add(&usb_device);
+        ohci_set_irq_handler(dev->usb, slc90e66_usb_irq, dev);
+        ohci_set_smi_handler(dev->usb, slc90e66_usb_smi, dev);
+    }
 
     if (dev->type > 3) {
         if (info->local & PIIX4_NVR_AMI_1995J)
@@ -1735,6 +1874,8 @@ piix_init(const device_t *info)
         else
             acpi_set_gpireg2_default(dev->acpi, (dev->type > 4) ? 0xf1 : 0xdd);
         acpi_set_trap_update(dev->acpi, piix_trap_update, dev);
+        if (dev->type > 4)
+            acpi_set_usb_sts_w1c(dev->acpi, 1);
 
         dev->ddma = device_add(&ddma_device);
     } else

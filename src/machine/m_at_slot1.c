@@ -251,7 +251,10 @@ machine_at_p6kdi_init(const machine_t *model)
     pci_register_slot(0x0D, PCI_CARD_NORMAL,      1, 2, 3, 4);
 
     device_add(&i440fx_device);
-    device_add(&piix3_device);
+    /* 86Box-Next: a PIIX4, not a PIIX3: every BIOS's tables are the PIIX4's
+       (GENCFG, RTCCFG, a power management table, IDE 8086:7111) and its USB
+       code looks for 8086:7112, so it never finds a PIIX3's USB function. */
+    device_add(&piix4_device);
     device_add_params(&fdc37c93x_device, (void *) (FDC37XXX2 | FDC37C93X_NORMAL));
     device_add(&winbond_flash_w29c020_device);
 

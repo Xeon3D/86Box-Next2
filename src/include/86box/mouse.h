@@ -82,6 +82,7 @@ extern const device_t mouse_msserial_device;
 extern const device_t mouse_msserial_ballpoint_device;
 extern const device_t mouse_ltserial_device;
 extern const device_t mouse_ps2_device;
+extern const device_t mouse_usb_device;     /* 86Box-Next: usb_hid.c */
 extern const device_t mouse_upc_device;
 extern const device_t mouse_upc_standalone_device;
 extern const device_t mouse_pxl_380_device;

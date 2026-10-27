@@ -57,7 +57,8 @@ enum {
     KEYBOARD_TYPE_AT,
     KEYBOARD_TYPE_AX,
     KEYBOARD_TYPE_PS2,
-    KEYBOARD_TYPE_PS55
+    KEYBOARD_TYPE_PS55,
+    KEYBOARD_TYPE_USB      /* 86Box-Next: on the USB controller, nothing on the keyboard controller */
 };
 
 /* Used by the AT / PS/2 keyboard controller, common device, keyboard, and mouse. */
@@ -214,6 +215,7 @@ extern const device_t keyboard_at_device;
 extern const device_t keyboard_ax_device;
 extern const device_t keyboard_ps2_device;
 extern const device_t keyboard_ps55_device;
+extern const device_t keyboard_usb_device;   /* 86Box-Next: usb_hid.c */
 extern const device_t keyboard_at_generic_device;
 #endif /*EMU_DEVICE_H*/
 

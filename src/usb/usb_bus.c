@@ -107,10 +107,19 @@ bus_unlock(void)
     thread_release_mutex(lock);
 }
 
-void
+int
 usbn_set_root(const usbn_root_ops_t *ops, void *priv, int high_speed)
 {
     bus_lock();
+    if ((ops == NULL) && (root_priv != priv)) {
+        bus_unlock();   /* not the one that has the ports */
+        return 0;
+    }
+    if ((ops != NULL) && (root != NULL)) {
+        bus_unlock();
+        pclog("USB: the ports are already another USB controller's; this one has none\n");
+        return 0;
+    }
     if (ops == NULL) {
         /* The card is going away: everything plugged in is released. */
         for (int p = 0; p < USBN_PORTS; p++) {
@@ -123,13 +132,14 @@ usbn_set_root(const usbn_root_ops_t *ops, void *priv, int high_speed)
         }
     }
     root            = ops;
-    root_priv       = priv;
+    root_priv       = ops ? priv : NULL;
     root_high_speed = high_speed;
     bus_unlock();
 
     if (ops && getenv("BOX86NEXT_USB_TRACE") && !usbn_trace_on)
         usbn_trace_enable(1);
     usbn_trace(ops ? "USB controller fitted (%s)" : "USB controller removed", high_speed ? "USB 2.0" : "USB 1.1");
+    return 1;
 }
 
 int
@@ -150,11 +160,70 @@ usbn_port_device(int port)
     return ((port >= 0) && (port < USBN_PORTS)) ? devs[port] : NULL;
 }
 
-/* Called by the root controller once per frame, on the emulation thread. */
-void
-usbn_apply(void)
+int
+usbn_move_root(void *from, const usbn_root_ops_t *ops, void *priv)
 {
-    if (root == NULL)
+    const usbn_root_ops_t *old;
+
+    bus_lock();
+    if ((root == NULL) || (root_priv != from) || (ops == NULL)) {
+        bus_unlock();
+        return 0;
+    }
+    old = root;
+    for (int p = 0; p < USBN_PORTS; p++) {
+        if (devs[p])
+            old->disconnect(from, p);
+    }
+    root      = ops;
+    root_priv = priv;
+    for (int p = 0; p < USBN_PORTS; p++) {
+        if (devs[p])
+            ops->connect(priv, p, devs[p]);
+    }
+    bus_unlock();
+    usbn_trace("the USB ports moved to another controller");
+    return 1;
+}
+
+void *
+usbn_root_owner(void)
+{
+    return root_priv;
+}
+
+void
+usbn_remote_wakeup(usbn_device_t *dev)
+{
+    if ((root == NULL) || (root->resume == NULL))
+        return;
+    for (int p = 0; p < USBN_PORTS; p++) {
+        if (devs[p] == dev) {
+            root->resume(root_priv, p);
+            return;
+        }
+    }
+}
+
+double
+usbn_bus_ns(int low_speed, int iso, int in, int len)
+{
+    /* Floor(3.167 + BitStuffTime(len)), BitStuffTime = 7 * 8 * len / 6. */
+    double bits = (double) (int) (3.167 + ((7.0 * 8.0 * (double) len) / 6.0));
+
+    if (low_speed)
+        return (in ? 64060.0 : 64107.0) + (2.0 * 333.0) + ((in ? 676.67 : 667.0) * bits);
+    if (iso)
+        return (in ? 7268.0 : 6265.0) + (83.54 * bits);
+    return 9107.0 + (83.54 * bits);
+}
+
+/* Called by the root controller once per frame, on the emulation thread;
+   a controller without the ports calls it too, and nothing happens. */
+void
+usbn_apply(void *priv)
+{
+    if ((root == NULL) || (priv != root_priv))
         return;
     usbn_frame_count++;
     bus_lock();

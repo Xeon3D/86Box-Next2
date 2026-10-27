@@ -14304,8 +14304,8 @@ const machine_t machines[] = {
             .min_multi   = 2.0,
             .max_multi   = 2.0
         },
-        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_PCI_INTERNAL | MACHINE_USB, /* Machine has internal video: ST STPC Atlas and NIC: Realtek RTL8100B (both not yet implemented) */
+        .bus_flags = MACHINE_PS2_PCI,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_PCI_INTERNAL, /* Machine has internal video: ST STPC Atlas and NIC: Realtek RTL8100B (both not yet implemented) */
         .ram       = {
             /* 32 MB soldered SDRAM, neither upgradable nor other known configurations exist. */
             .min  = 32768,
@@ -14452,8 +14452,8 @@ const machine_t machines[] = {
             .min_multi   = 2.0,
             .max_multi   = 2.0
         },
-        .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_PCI_INTERNAL, /* Machine has internal video: ST STPC Atlas (not yet implemented) */
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_PCI_INTERNAL | MACHINE_USB, /* Machine has internal video: ST STPC Atlas (not yet implemented) */
         .ram       = {
             .min  = 32768,
             .max  = 131072,
@@ -17685,8 +17685,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 2.0
         },
-        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_VIDEO | MACHINE_APM | MACHINE_USB,
+        .bus_flags = MACHINE_PS2_PCI,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_VIDEO | MACHINE_APM,
         .ram       = {
             .min  = 8192,
             .max  = 131072,
@@ -18132,8 +18132,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 3.0
         },
-        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_USB,
+        .bus_flags = MACHINE_PS2_PCI,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_APM,
         .ram       = {
             .min  = 8192,
             .max  = 131072,
@@ -18183,8 +18183,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 3.0
         },
-        .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_APM,
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_USB,
         .ram       = {
             .min  = 4096,
             .max  = 524288,
@@ -18232,8 +18232,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 2.5
         },
-        .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_APM,
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_USB, /* 86Box-Next: its BIOS has USB Legacy Support */
         .ram       = {
             .min  = 4096,
             .max  = 524288,
@@ -18328,8 +18328,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 3.0
         },
-        .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_AV | MACHINE_GAMEPORT | MACHINE_APM,
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_AV | MACHINE_GAMEPORT | MACHINE_APM | MACHINE_USB,
         .ram       = {
             .min  = 8192,
             .max  = 131072,
@@ -18376,7 +18376,7 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 3.0
         },
-        .bus_flags = MACHINE_PS2_PCI,
+        .bus_flags = MACHINE_PS2_PCI, /* No USB: the panel has no USB connector and the BIOS no USB option, although the PIIX3 has the controller. */
         .flags     = MACHINE_IDE_DUAL | MACHINE_APM, /* Machine has internal video: C&T F65548 (not yet implemented) */
         .ram       = {
             .min  = 8192,
@@ -19139,8 +19139,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 4.0
         },
-        .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_APM,
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_USB,
         .ram       = {
             .min  = 4096,
             .max  = 524288,
@@ -19436,8 +19436,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 3.5
         },
-        .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL,
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_USB,
         .ram       = {
             .min  = 4096,
             .max  = 524288,
@@ -19488,8 +19488,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 3.0
         },
-        .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_SOUND | MACHINE_GAMEPORT, /* Machine has internal video: ATI 3D Rage II (Mach64GT-B) (not yet implemented) */
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_SOUND | MACHINE_GAMEPORT | MACHINE_USB, /* Machine has internal video: ATI 3D Rage II (Mach64GT-B) (not yet implemented) */
         .ram       = {
             .min  = 8192,
             .max  = 524288,
@@ -19734,8 +19734,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 4.0
         },
-        .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_VIDEO | MACHINE_IDE_DUAL | MACHINE_SOUND | MACHINE_APM,
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_VIDEO | MACHINE_IDE_DUAL | MACHINE_SOUND | MACHINE_APM | MACHINE_USB, /* 86Box-Next: its BIOS has USB Keyboard Support */
         .ram       = {
             .min  = 4096,
             .max  = 131072,
@@ -19831,8 +19831,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 3.5
         },
-        .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_VIDEO | MACHINE_SOUND | MACHINE_GAMEPORT | MACHINE_APM,
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_VIDEO | MACHINE_SOUND | MACHINE_GAMEPORT | MACHINE_APM | MACHINE_USB,
         .ram       = {
             .min  = 16384,
             .max  = 65536,
@@ -19880,8 +19880,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 3.5
         },
-        .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_VIDEO | MACHINE_SOUND | MACHINE_GAMEPORT | MACHINE_APM,
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_VIDEO | MACHINE_SOUND | MACHINE_GAMEPORT | MACHINE_APM | MACHINE_USB,
         .ram       = {
             .min  = 16384,
             .max  = 65536,
@@ -20126,8 +20126,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 3.5
         },
-        .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_VIDEO | MACHINE_IDE_DUAL | MACHINE_APM,
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_VIDEO | MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_USB,
         .ram       = {
             .min  = 8192,
             .max  = 131072,
@@ -20174,8 +20174,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 4.0
         },
-        .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_APM,
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_USB,
         .ram       = {
             .min  = 8192,
             .max  = 131072,
@@ -20373,8 +20373,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 5.5
         },
-        .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_ACPI | MACHINE_VIDEO | MACHINE_NIC,
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_ACPI | MACHINE_VIDEO | MACHINE_NIC | MACHINE_USB,
         .ram       = {
             .min  = 8192,
             .max  = 262144,
@@ -20574,8 +20574,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 3.5
         },
-        .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_ACPI | MACHINE_VIDEO | MACHINE_SOUND, /* Machine has internal NIC: 3Com 3C905 (not yet implemented) */
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_ACPI | MACHINE_VIDEO | MACHINE_SOUND | MACHINE_USB, /* Machine has internal NIC: 3Com 3C905 (not yet implemented) */
         .ram       = {
             .min  = 8192,
             .max  = 262144,
@@ -20721,8 +20721,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 3.5
         },
-        .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_VIDEO | MACHINE_APM | MACHINE_SOUND | MACHINE_GAMEPORT,
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_VIDEO | MACHINE_APM | MACHINE_SOUND | MACHINE_GAMEPORT | MACHINE_USB,
         .ram       = {
             .min  = 8192,
             .max  = 262144,
@@ -23878,8 +23878,8 @@ const machine_t machines[] = {
             .min_multi   = 1.5,
             .max_multi   = 5.0
         },
-        .bus_flags = MACHINE_PS2_AGP,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_SOUND | MACHINE_GAMEPORT,
+        .bus_flags = MACHINE_PS2_AGP | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_SOUND | MACHINE_GAMEPORT | MACHINE_USB,
         .ram       = {
             .min  = 8192,
             .max  = 786432,

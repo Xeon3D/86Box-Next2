@@ -1296,10 +1296,11 @@ MachineStatus::refresh(QStatusBar *sbar)
         updatePcCardIcon();
     }
 
-    /* 86Box-Next: the USB icon, while a USB controller is fitted: a click
-       opens the USB menu (host devices to connect, the ports). */
+    /* 86Box-Next: the USB icon, while a USB controller is fitted (a card,
+       or the motherboard's): a click opens the USB menu (host devices to
+       connect, the ports). */
     d->usb.reset();
-    if ((usb_card_type > 0) && usbManager) {
+    if (usbManager && UsbManager::fitted()) {
         d->usb = std::make_unique<ClickableLabel>();
         d->usb->setPixmap(d->pixmaps.usb.normal);
         d->usb->setToolTip(usbManager->toolTip());

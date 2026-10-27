@@ -29,6 +29,7 @@
 #include <86box/keyboard.h>
 #include <86box/plat.h>
 #include <86box/guest_tools.h>
+#include <86box/usb_next.h>
 
 #include "cpu.h"
 
@@ -67,6 +68,7 @@ static keyboard_t keyboard_devices[] = {
     { &keyboard_ax_device              },
     { &keyboard_ps2_device             },
     { &keyboard_ps55_device            },
+    { &keyboard_usb_device             },   /* 86Box-Next: KEYBOARD_TYPE_USB */
     { NULL                             }
     // clang-format on
 };
@@ -407,7 +409,12 @@ keyboard_input(int down, uint16_t scan)
 
     if (override_capture || mouse_capture || guest_tools_keyboard() || !kbd_req_capture || (video_fullscreen && !fullscreen_ui_visible)) {
         recv_key[scan & 0x1ff] = down;
-        key_process(scan & 0x1ff, down);
+        /* 86Box-Next: a USB keyboard takes every key (and drops them until
+           the guest's USB driver drives it). */
+        if (keyboard_type == KEYBOARD_TYPE_USB)
+            usbn_hid_key(down, scan & 0x1ff);
+        else
+            key_process(scan & 0x1ff, down);
     }
 }
 
@@ -420,7 +427,9 @@ keyboard_all_up(void)
 
         if (recv_key[i]) {
             recv_key[i] = 0;
-            if (kbd_in_reset && !keyboard_input_handler)
+            if (keyboard_type == KEYBOARD_TYPE_USB)
+                usbn_hid_key(0, i);
+            else if (kbd_in_reset && !keyboard_input_handler)
                 oldkey[i] = 0;
             else
                 key_process(i, 0);
@@ -640,5 +649,9 @@ keyboard_get_ndev(void)
 void
 keyboard_add_device(void)
 {
+    /* 86Box-Next: a USB keyboard is on the USB controller (usb_hid.c); the
+       keyboard controller has none, as on a real machine with only one. */
+    if (keyboard_type == KEYBOARD_TYPE_USB)
+        return;
     device_add(keyboard_devices[keyboard_type].device);
 }

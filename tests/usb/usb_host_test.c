@@ -128,6 +128,7 @@ libusb_get_device_descriptor(libusb_device *d, struct libusb_device_descriptor *
 }
 int            libusb_get_device_speed(libusb_device *d) { (void) d; return LIBUSB_SPEED_HIGH; }
 uint8_t        libusb_get_bus_number(libusb_device *d) { (void) d; return 1; }
+uint8_t        libusb_get_device_address(libusb_device *d) { (void) d; return 2; }
 int            libusb_get_port_numbers(libusb_device *d, uint8_t *p, int n) { (void) d; (void) n; p[0] = 3; return 1; }
 int            libusb_open(libusb_device *d, libusb_device_handle **h) { (void) d; *h = FAKE_H; return 0; }
 void           libusb_close(libusb_device_handle *h) { (void) h; }

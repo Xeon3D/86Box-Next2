@@ -123,6 +123,7 @@ static mouse_t mouse_devices[] = {
     { &mouse_msserial_ballpoint_device },
     { &mouse_ltserial_device           },
     { &mouse_ps2_device                },
+    { &mouse_usb_device                },   /* 86Box-Next: on the USB controller (usb_hid.c) */
 #ifdef USE_STANDALONE_QUICKPORT
     { &mouse_upc_standalone_device     },
 #endif
@@ -905,6 +906,15 @@ mouse_reset(void)
     if (mouse_type == 0) {
         if (mouse_input_mode == 0 && tablet_type)
             mouse_input_mode = 1;
+        return;
+    }
+
+    /* 86Box-Next: a USB mouse has no device here: the USB controller's
+       (usb_hid.c) reads the mouse when polled.  The input modes are a
+       mouse's all the same. */
+    if (mouse_devices[mouse_type].device == &mouse_usb_device) {
+        if (!tablet_type && (mouse_input_mode > 0))
+            mouse_input_mode = 0;
         return;
     }
 

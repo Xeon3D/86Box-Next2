@@ -2037,8 +2037,10 @@ pc_reset_hard_init(void)
     /* 86Box-Next: the internal modem card, if one is fitted. */
     modem_card_reset();
 
-    /* 86Box-Next: the USB controller card, if one is fitted. */
+    /* 86Box-Next: the USB controller card, if one is fitted, and the
+       emulated USB keyboard and mouse on it. */
     usb_card_reset();
+    usbn_hid_attach();
 
     /* 86Box-Next: the PC Card controller and its cards, if fitted. */
     pcmcia_reset();

@@ -27,6 +27,7 @@ public:
 
 public slots:
     void onCurrentMachineChanged(int machineId);
+    void onUsbCardChanged();   /* 86Box-Next: the USB controller chosen on Other peripherals */
 
 private slots:
     void on_comboBoxKeyboard_currentIndexChanged(int index);

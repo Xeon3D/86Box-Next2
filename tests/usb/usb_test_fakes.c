@@ -55,6 +55,26 @@ pci_irq(uint8_t slot, uint8_t pin, int level, int set, uint8_t *st)
     *st = set;
 }
 
+/* ---- the claim on ports 60h/64h (the PIIX3 USB function's legacy traps) ---- */
+static int (*fake_claim)(uint16_t port, uint8_t write, uint8_t val, void *priv);
+static void *fake_claim_priv;
+
+void
+io_set_claim(uint16_t port, int (*func)(uint16_t port, uint8_t write, uint8_t val, void *priv), void *priv)
+{
+    (void) port;   /* the same claim on 60h and 64h */
+    fake_claim      = func;
+    fake_claim_priv = priv;
+}
+
+/* An access to a port, as the CPU would make it: 1 when the claim took it
+   (a trapped cycle, kept from the keyboard controller). */
+int
+fake_port_access(uint16_t port, int write, uint8_t val)
+{
+    return fake_claim && fake_claim(port, write, val, fake_claim_priv);
+}
+
 /* ---- I/O ---- */
 static uint16_t (*io_rw)(uint16_t, void *);
 static void (*io_ww)(uint16_t, uint16_t, void *);
@@ -108,8 +128,8 @@ uint32_t fake_mmio_rl(uint32_t off) { return mm_rl(fake_mmio_base + off, mm_priv
 void     fake_mmio_wl(uint32_t off, uint32_t val) { mm_wl(fake_mmio_base + off, val, mm_priv); }
 
 /* ---- timers ---- */
-static void (*timer_cb[4])(void *);
-static void *timer_priv[4];
+static void (*timer_cb[16])(void *);
+static void *timer_priv[16];
 static int   ntimers;
 
 void
@@ -121,6 +141,10 @@ timer_add(pc_timer_t *t, void (*cb)(void *), void *p, int start)
     ntimers++;
 }
 void timer_on_auto(pc_timer_t *t, double period) { (void) t; (void) period; }
+void timer_stop(pc_timer_t *t) { (void) t; }
+void timer_disable(pc_timer_t *t) { (void) t; }
+uint64_t tsc;
+uint64_t TIMER_USEC = 1;
 
 void
 fake_frames(int n)
@@ -143,6 +167,7 @@ void     pclog(const char *fmt, ...) { (void) fmt; }
 const device_t device_none = { .name = "None", .internal_name = "none" };
 const char *device_get_internal_name(const device_t *d) { return d ? d->internal_name : ""; }
 void *device_add(const device_t *d) { (void) d; return NULL; }
+void *device_add_inst(const device_t *d, int inst) { (void) inst; return d->init ? d->init(d) : NULL; }
 usbn_device_t *usbn_host_open(uint16_t v, uint16_t p, char *e, int n) { (void) v; (void) p; snprintf(e, n, "test"); return NULL; }
 
 /* ---- the fake device ----

@@ -25,6 +25,7 @@ extern "C" {
 #include <86box/mouse.h>
 #include <86box/gameport.h>
 #include <86box/ui.h>
+#include <86box/usb_next.h>
 }
 
 #include "qt_settings_completer.hpp"
@@ -39,6 +40,7 @@ extern "C" {
 #include "qt_defs.hpp"
 
 #include "qt_settingsdisplay.hpp"
+#include "qt_usb_manager.hpp"
 
 extern MainWindow *main_window;
 
@@ -150,6 +152,25 @@ SettingsInput::save(int soft)
     joystick_type[0] = ui->comboBoxJoystick0->currentData().toInt();
 }
 
+/* 86Box-Next: the USB keyboard and mouse are offered only while the machine
+   has a USB controller: a PCI card (so a machine with PCI slots), or the
+   motherboard's own (its southbridge's). */
+static bool
+usb_offered(int machineId)
+{
+    const int card = Settings::settings ? Settings::settings->currentUsbCard() : usb_card_type;
+
+    if (UsbManager::machineHasOnboardUsb(machineId))
+        return true;
+    return (card > 0) && (machine_has_bus(machineId, MACHINE_BUS_PCI) > 0);
+}
+
+void
+SettingsInput::onUsbCardChanged()
+{
+    onCurrentMachineChanged(machineId);
+}
+
 void
 SettingsInput::onCurrentMachineChanged(int machineId)
 {
@@ -174,6 +195,11 @@ SettingsInput::onCurrentMachineChanged(int machineId)
     int c           = 0;
     int has_int_kbd = !!machine_has_flags(machineId, MACHINE_KEYBOARD);
     int has_cga_pen = Settings::settings && Settings::settings->display && !!Settings::settings->display->isLightPenUsable();
+    const bool usb  = usb_offered(machineId);
+
+    /* No USB controller now: the machine's usual keyboard instead of a USB one. */
+    if ((curKeyboardType == KEYBOARD_TYPE_USB) && !usb)
+        curKeyboardType = machine_has_bus(machineId, MACHINE_BUS_PS2_PORTS) ? KEYBOARD_TYPE_PS2 : KEYBOARD_TYPE_AT;
 
     Models::Batch keyboardRows(keyboardModel);
     for (int i = 0; i < keyboard_get_ndev(); ++i) {
@@ -183,6 +209,8 @@ SettingsInput::onCurrentMachineChanged(int machineId)
         bool pc5086_filter = (strstr(keyboard_get_internal_name(i), "ps") && machines[machineId].init == machine_xt_pc5086_init);
 
         if ((ikbd != has_int_kbd) || !device_is_valid(dev, machineId) || pc5086_filter)
+            continue;
+        if ((i == KEYBOARD_TYPE_USB) && !usb)
             continue;
 
         QString name = DeviceConfig::DeviceName(dev, keyboard_get_internal_name(i), 0);
@@ -217,6 +245,8 @@ SettingsInput::onCurrentMachineChanged(int machineId)
             continue;
 
         if (device_is_valid(dev, machineId) == 0)
+            continue;
+        if ((dev == &mouse_usb_device) && !usb)
             continue;
 
         QString name = DeviceConfig::DeviceName(dev, mouse_get_internal_name(i), 0);

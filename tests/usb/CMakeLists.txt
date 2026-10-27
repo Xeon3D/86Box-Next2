@@ -2,6 +2,14 @@
 # and the host passthrough against a fake libusb.  No test framework; each
 # test is a program that returns non-zero on failure.
 if(BUILD_TESTING)
+    # The card list (usb_uhci.c) has the OHCI card, so every test with the
+    # UHCI links the OHCI too.
+    set(USB_OHCI_SOURCES
+        ../../src/usb/usb_ohci.c
+        ../../src/usb/usb_chipset.c
+        ../../src/usb/usb_opti861.c
+    )
+
     # Each controller test is built once per card: VIA, and Intel (-D*_INTEL).
     foreach(t uhci ehci)
         foreach(card via intel)
@@ -11,6 +19,7 @@ if(BUILD_TESTING)
                 usb_test_fakes.c
                 ../../src/usb/usb_uhci.c
                 ../../src/usb/usb_bus.c
+                ${USB_OHCI_SOURCES}
                 $<$<STREQUAL:${t},ehci>:../../src/usb/usb_ehci.c>
             )
             target_include_directories(${name} PRIVATE
@@ -24,6 +33,61 @@ if(BUILD_TESTING)
             add_test(NAME Usb.${t}.${card} COMMAND ${name})
         endforeach()
     endforeach()
+
+    # The PIIX3's USB function: configuration space and legacy support.
+    add_executable(usb_piix3_tests
+        usb_piix3_test.c
+        usb_test_fakes.c
+        ../../src/usb/usb_uhci.c
+        ../../src/usb/usb_bus.c
+        ${USB_OHCI_SOURCES}
+    )
+    target_include_directories(usb_piix3_tests PRIVATE
+        ${PROJECT_SOURCE_DIR}/src/include
+        ${PROJECT_BINARY_DIR}/src/include
+    )
+    add_test(NAME Usb.piix3 COMMAND usb_piix3_tests)
+
+    # The OHCI, on the OPTi FireLink card.
+    add_executable(usb_ohci_tests
+        usb_ohci_test.c
+        usb_test_fakes.c
+        ../../src/usb/usb_uhci.c
+        ../../src/usb/usb_bus.c
+        ${USB_OHCI_SOURCES}
+    )
+    target_include_directories(usb_ohci_tests PRIVATE
+        ${PROJECT_SOURCE_DIR}/src/include
+        ${PROJECT_BINARY_DIR}/src/include
+    )
+    add_test(NAME Usb.ohci COMMAND usb_ohci_tests)
+
+    # The southbridges' USB function behind upstream's usb.h.
+    add_executable(usb_chipset_tests
+        usb_chipset_test.c
+        usb_test_fakes.c
+        ../../src/usb/usb_uhci.c
+        ../../src/usb/usb_bus.c
+        ${USB_OHCI_SOURCES}
+    )
+    target_include_directories(usb_chipset_tests PRIVATE
+        ${PROJECT_SOURCE_DIR}/src/include
+        ${PROJECT_BINARY_DIR}/src/include
+    )
+    add_test(NAME Usb.chipset COMMAND usb_chipset_tests)
+
+    # The emulated keyboard and mouse, driven packet by packet.
+    add_executable(usb_hid_tests
+        usb_hid_test.c
+        usb_test_fakes.c
+        ../../src/usb/usb_bus.c
+        ../../src/usb/usb_hid.c
+    )
+    target_include_directories(usb_hid_tests PRIVATE
+        ${PROJECT_SOURCE_DIR}/src/include
+        ${PROJECT_BINARY_DIR}/src/include
+    )
+    add_test(NAME Usb.hid COMMAND usb_hid_tests)
 
     find_package(PkgConfig QUIET)
     if(PKG_CONFIG_FOUND)

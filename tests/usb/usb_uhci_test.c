@@ -229,6 +229,73 @@ test_no_device(void)
     wrw(0x02, 0x0003);
 }
 
+/* A bandwidth-reclamation loop (the QH linked to itself) with a device that
+   NAKs: the controller keeps asking until the frame's bus time runs out at
+   the preSOF point -- about a hundred full-speed NAKs -- then goes on to the
+   next frame. */
+static void
+test_bus_time(void)
+{
+    td(TD0, 1, 0, USB_PID_IN, 3, 0, 8, BUF);
+    schedule(TD0);
+    wr32m(QH, QH | 2);
+    fake.naks = 100000;
+    uint16_t fr = rdw(0x06);
+    fake_frames(1);
+    int asked = 100000 - fake.naks;
+    CHECK((asked > 50) && (asked < 200), "NAKs in one frame bounded by its bus time (%d)", asked);
+    CHECK(rdw(0x06) == ((fr + 1) & 0x7ff), "and the frame ended");
+    fake.naks = 0;
+    wr32m(QH, 1);
+    schedule(TD0);
+    wrw(0x02, 0x0003);
+}
+
+/* Software debug mode: one TD, then Run/Stop clears and HCHalted sets; Run/
+   Stop again goes on from the next TD in the same frame. */
+static void
+test_debug_mode(void)
+{
+    td(TD0, (TD0 + 0x20) | 4, 0, USB_PID_IN, 3, 2, 8, BUF + 0x200);
+    td(TD0 + 0x20, 1, 0, USB_PID_IN, 3, 2, 8, BUF + 0x208);
+    schedule(TD0);
+    uint16_t fr = rdw(0x06);
+    wrw(0x00, 0x0021);   /* SWDBG | RS */
+    fake_frames(1);
+    CHECK(!(rd32m(TD0 + 4) & 0x00800000), "debug: the first TD ran");
+    CHECK(rd32m(TD0 + 0x24) & 0x00800000, "debug: the second waits");
+    CHECK(!(rdw(0x00) & 1) && (rdw(0x02) & 0x20), "debug: stopped and halted after one TD");
+    CHECK(rdw(0x06) == fr, "debug: the frame number stays");
+    wrw(0x00, 0x0021);
+    fake_frames(1);
+    CHECK(!(rd32m(TD0 + 0x24) & 0x00800000), "debug: Run/Stop again runs the next TD");
+    wrw(0x00, 0x0001);
+    wrw(0x02, 0x0003);
+}
+
+/* Remote wakeup: from global suspend the controller sets Force Global
+   Resume and Resume Detect; on a suspended port, the port's Resume Detect. */
+static void
+test_remote_wakeup(void)
+{
+    wrw(0x00, 0x0000);
+    wrw(0x04, 0x0002);   /* the resume interrupt */
+    wrw(0x00, 0x0008);   /* EGSM */
+    usbn_remote_wakeup(&fake.dev);
+    CHECK(rdw(0x00) & 0x0010, "remote wakeup in global suspend: FGR set");
+    CHECK(rdw(0x02) & 0x0004, "Resume Detect status");
+    CHECK(fake_irq[1], "with its interrupt enabled, an interrupt");
+    wrw(0x00, 0x0000);
+    wrw(0x02, 0x0004);
+    wrw(0x04, 0x0000);
+
+    wrw(0x10, 0x1004);   /* enabled, suspended */
+    usbn_remote_wakeup(&fake.dev);
+    CHECK(rdw(0x10) & 0x0040, "remote wakeup on a suspended port: its Resume Detect");
+    wrw(0x10, 0x0004);
+    wrw(0x00, 0x0001);
+}
+
 static void
 test_disconnect(void)
 {
@@ -261,6 +328,9 @@ main(void)
     test_short_packet();
     test_iso();
     test_no_device();
+    test_bus_time();
+    test_debug_mode();
+    test_remote_wakeup();
     test_disconnect();
     test_global_reset();
     CARD.close(dev);

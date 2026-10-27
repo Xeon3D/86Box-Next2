@@ -6,7 +6,8 @@
  *               thread looks for that file about ten times a second; when it
  *               exists, its lines are run and the file is deleted:
  *
- *                 key 1c,9c        scancodes (hex; 9c = release), one every 20 ms
+ *                 key 1c,9c        scancodes (hex; 9c = release), one every 20 ms;
+ *                                  1xx is the E0-prefixed key (148 Up, 1c8 its release)
  *                 type text        printable US-keyboard characters (pressed and released)
  *                 shot path.bmp    the emulated screen as a 32-bit BMP
  *                 log text         a line in the 86Box log
@@ -14,6 +15,8 @@
  *                 cpu              CS:EIP, registers and the code bytes there
  *                 peek addr        the physical address and 16 bytes at a linear address
  *                 peekp addr [n]   n (16) bytes at a physical address, 16 a line
+ *                 peekr addr [n]   as peekp, straight from system RAM: past the memory
+ *                                  mappings, so SMRAM (A0000h under the VGA window) too
  *                 findp hexbytes   the physical addresses (first 32) where RAM holds the bytes
  *                 sel selector     the base and limit of a protected-mode selector (GDT/LDT)
  *                 bpp addr [n]     as bp, at a physical address (code whose linear address
@@ -229,6 +232,14 @@ debug_cmd_lin_read32(uint32_t lin)
 
 static uint32_t debug_cmd_wp_phys;
 static uint32_t debug_cmd_wp_val;
+static int      debug_cmd_wp_raw; /* "wpr": the RAM itself, not what the CPU sees there */
+
+static uint32_t
+debug_cmd_wp_read(void)
+{
+    return debug_cmd_wp_raw ? *(uint32_t *) &ram[debug_cmd_wp_phys] : mem_readl_phys(debug_cmd_wp_phys);
+}
+
 static uint32_t debug_cmd_wp_left;
 static uint32_t debug_cmd_wp_lastpc;
 
@@ -237,7 +248,7 @@ void
 debug_cmd_bp_check(uint32_t lin)
 {
     if (debug_cmd_wp_left) {
-        uint32_t v = mem_readl_phys(debug_cmd_wp_phys);
+        uint32_t v = debug_cmd_wp_read();
         if (v != debug_cmd_wp_val) {
             debug_cmd_wp_left--;
             always_log("debug_cmd: wp %08x: %08x -> %08x by the instruction at %08x (now at %08x, esp %08x, [esp] %08x %08x %08x)\n",
@@ -286,7 +297,7 @@ debug_cmd_wp(char *arg)
         return;
     }
     debug_cmd_wp_phys = (uint32_t) phys;
-    debug_cmd_wp_val  = mem_readl_phys(debug_cmd_wp_phys);
+    debug_cmd_wp_val  = debug_cmd_wp_read();
     debug_cmd_wp_left = 64;
     /* the check runs from the breakpoint hook: keep it called */
     if (debug_cmd_bp_count == 0) {
@@ -337,6 +348,25 @@ debug_cmd_peek(const char *arg)
     for (int i = 0; i < 16; i++)
         snprintf(bytes + 3 * i, 4, " %02x", mem_readb_phys((uint32_t) phys + i));
     always_log("debug_cmd: peek %08x (phys %08x):%s\n", lin, (uint32_t) phys, bytes);
+}
+
+/* System RAM itself, whatever is mapped there now (SMRAM, shadowed ROM). */
+static void
+debug_cmd_peekr(const char *arg)
+{
+    char    *end;
+    uint32_t phys = strtoul(arg, &end, 16);
+    uint32_t n    = strtoul(end, NULL, 0);
+    uint32_t size = mem_size << 10;
+    char     bytes[3 * 16 + 1];
+
+    if ((n == 0) || (n > 4096))
+        n = 16;
+    for (uint32_t o = 0; (o < n) && ram && (phys + o + 16 <= size); o += 16) {
+        for (int i = 0; i < 16; i++)
+            snprintf(bytes + 3 * i, 4, " %02x", ram[phys + o + i]);
+        always_log("debug_cmd: peekr %08x:%s\n", phys + o, bytes);
+    }
 }
 
 static void
@@ -553,9 +583,13 @@ debug_cmd_run(char *line)
             always_log("debug_cmd: dev: no device hook\n");
     } else if (!strcmp(line, "cpu"))
         debug_cmd_cpu();
-    else if (!strcmp(line, "wp"))
+    else if (!strcmp(line, "wpr")) {
+        debug_cmd_wp_raw = 1;
         debug_cmd_wp(arg);
-    else if (!strcmp(line, "bp"))
+    } else if (!strcmp(line, "wp")) {
+        debug_cmd_wp_raw = 0;
+        debug_cmd_wp(arg);
+    } else if (!strcmp(line, "bp"))
         debug_cmd_bp(arg, 0);
     else if (!strcmp(line, "bpp"))
         debug_cmd_bp(arg, 1);
@@ -563,6 +597,8 @@ debug_cmd_run(char *line)
         debug_cmd_peek(arg);
     else if (!strcmp(line, "peekp"))
         debug_cmd_peekp(arg);
+    else if (!strcmp(line, "peekr"))
+        debug_cmd_peekr(arg);
     else if (!strcmp(line, "sel"))
         debug_cmd_sel(arg);
     else if (!strcmp(line, "findp"))
@@ -629,7 +665,7 @@ debug_cmd_poll(void)
             uint16_t code      = debug_cmd_keys[debug_cmd_key_head];
             debug_cmd_key_head = (debug_cmd_key_head + 1) % DEBUG_CMD_QUEUE;
             debug_cmd_key_wait = 0;
-            keyboard_input(!(code & 0x80), code & 0x7f);
+            keyboard_input(!(code & 0x80), code & 0x17f);
         }
     }
 

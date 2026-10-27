@@ -22,6 +22,7 @@ extern "C" {
 #include <86box/86box.h>
 #include <86box/ini.h>
 #include <86box/config.h>
+#include <86box/machine.h>
 }
 
 #define POLL_MS 2000
@@ -108,10 +109,26 @@ UsbManager::toolTip() const
     return tip;
 }
 
+bool
+UsbManager::fitted()
+{
+    return (usb_card_type > 0) || usbn_present();
+}
+
+bool
+UsbManager::machineHasOnboardUsb(int machineId)
+{
+    /* Every board with these flags has a southbridge whose USB function is
+       one of ours: the PIIX3/PIIX4's UHCI (usb_uhci.c), VIA's UHCIs and the
+       ALi, SiS, SMSC and STPC OHCIs (usb_chipset.c).  The machine table's
+       flags follow the southbridge (upstream's 2026-10-25 audit). */
+    return machine_has_flags(machineId, MACHINE_USB) && machine_has_bus(machineId, MACHINE_BUS_USB);
+}
+
 void
 UsbManager::refresh()
 {
-    const bool on = (usb_card_type > 0);
+    const bool on = fitted();
 
     menu->menuAction()->setVisible(on);
     if (on && usbn_host_available()) {

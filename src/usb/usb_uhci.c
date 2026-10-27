@@ -45,6 +45,8 @@
 #include <86box/plat_unused.h>
 #include <86box/usb_next.h>
 
+#define UHCI_PORTS 2   /* root ports */
+
 #ifdef ENABLE_USB_UHCI_LOG
 int usb_uhci_do_log = ENABLE_USB_UHCI_LOG;
 
@@ -179,9 +181,9 @@ typedef struct uhci_t {
     uint16_t cmd, sts, intr, frnum;
     uint32_t flbase;
     uint8_t  sofmod;
-    uint16_t portsc[USBN_ROOT_PORTS];
+    uint16_t portsc[UHCI_PORTS];
 
-    usbn_device_t *dev[USBN_ROOT_PORTS];   /* what this controller sees on each port */
+    usbn_device_t *dev[UHCI_PORTS];   /* what this controller sees on each port */
 
     pc_timer_t frame_timer;
     uint8_t    pending_sts;   /* status bits raised during this frame */
@@ -436,7 +438,7 @@ uhci_port_disconnect(uhci_t *dev, int p)
 static usbn_device_t *
 uhci_find_device(uhci_t *dev, uint8_t addr, int ls)
 {
-    for (int p = 0; p < USBN_ROOT_PORTS; p++) {
+    for (int p = 0; p < UHCI_PORTS; p++) {
         usbn_device_t *d = dev->dev[p];
         if (d && (dev->portsc[p] & PORT_PED) && !(dev->portsc[p] & (PORT_PR | PORT_SUSP)) &&
             ((d = usbn_route(d, addr, ls)) != NULL)) {   /* the device, or one behind its hub */
@@ -769,7 +771,7 @@ uhci_reset_regs(uhci_t *dev)
     dev->flbase = 0;
     dev->sofmod = 0x40;
     dev->dbg_resume = 0;
-    for (int p = 0; p < USBN_ROOT_PORTS; p++) {
+    for (int p = 0; p < UHCI_PORTS; p++) {
         dev->portsc[p] &= PORT_CCS | PORT_LSDA | PORT_LS_J | PORT_LS_K;
         if (dev->portsc[p] & PORT_CCS)
             dev->portsc[p] |= PORT_CSC;
@@ -1091,7 +1093,7 @@ uhci_root_resume(void *priv, int port)
 {
     uhci_t *dev = (uhci_t *) priv;
 
-    if ((port >= USBN_ROOT_PORTS) || !dev->dev[port] || !(dev->portsc[port] & PORT_PED))
+    if ((port >= UHCI_PORTS) || !dev->dev[port] || !(dev->portsc[port] & PORT_PED))
         return;
     if (dev->cmd & CMD_EGSM) {
         usbn_trace("UHCI: port %d: remote wakeup from global suspend", port + 1);
@@ -1111,7 +1113,7 @@ uhci_root_idle(void *priv, int port)
 {
     const uhci_t *dev = (uhci_t *) priv;
 
-    if ((port >= USBN_ROOT_PORTS) || !(dev->portsc[port] & PORT_PED))
+    if ((port >= UHCI_PORTS) || !(dev->portsc[port] & PORT_PED))
         return 0;
     return !!(dev->portsc[port] & PORT_SUSP) || !!(dev->cmd & CMD_EGSM);
 }
@@ -1294,12 +1296,9 @@ uhci_onboard_close(uhci_t *dev)
 
 /* ------------------------------------------- driven by a southbridge --- */
 
-/* The southbridges' UHCIs that can hold the ports: when the one that has
-   them is turned off (VIA Rx48 bit 2 / Rx85 bit 4), they move to another
-   that is on, devices and all, as the guest would find them there. */
-#define UHCI_CHIPSET_MAX 4
-static uhci_t *chipset_hcs[UHCI_CHIPSET_MAX];
-
+/* Each has its own ports (a block of bus slots): one turned off by the
+   southbridge (VIA Rx48 bit 2 / Rx85 bit 4) runs no frames, and what is
+   assigned to its ports is out of the guest's reach, as on the board. */
 uhci_t *
 uhci_chipset_create(void)
 {
@@ -1309,44 +1308,19 @@ uhci_chipset_create(void)
     dev->chipset    = 1;
     dev->present    = 1;
     dev->bus_master = 0;
-    for (int i = 0; i < UHCI_CHIPSET_MAX; i++) {
-        if (chipset_hcs[i] == NULL) {
-            chipset_hcs[i] = dev;
-            break;
-        }
-    }
     if (usbn_set_root(&uhci_root_ops, dev, 0))
         usbn_restore_ports();
     return dev;
 }
 
-static uhci_t *
-uhci_chipset_other(const uhci_t *dev)
-{
-    for (int i = 0; i < UHCI_CHIPSET_MAX; i++) {
-        if (chipset_hcs[i] && (chipset_hcs[i] != dev) && chipset_hcs[i]->present)
-            return chipset_hcs[i];
-    }
-    return NULL;
-}
-
 void
 uhci_chipset_close(uhci_t *dev)
 {
-    uhci_t *other;
-
-    for (int i = 0; i < UHCI_CHIPSET_MAX; i++) {
-        if (chipset_hcs[i] == dev)
-            chipset_hcs[i] = NULL;
-    }
     if (dev->io_mapped) {
         dev->pci_conf[0x04] = 0;
         uhci_remap(dev);
     }
-    if ((usbn_root_owner() == dev) && ((other = uhci_chipset_other(dev)) != NULL))
-        usbn_move_root(dev, &uhci_root_ops, other);
-    else
-        usbn_set_root(NULL, dev, 0);
+    usbn_set_root(NULL, dev, 0);
     timer_disable(&dev->frame_timer);
     free(dev);
 }
@@ -1393,24 +1367,9 @@ uhci_chipset_set_babble_keep_port(uhci_t *dev, int keep)
 void
 uhci_chipset_set_present(uhci_t *dev, int present)
 {
-    uhci_t *owner = (uhci_t *) usbn_root_owner();
-    uhci_t *other;
-
-    present = !!present;
-    if (dev->present == present)
-        return;
-    dev->present = present;
-    if (!present && (owner == dev) && ((other = uhci_chipset_other(dev)) != NULL)) {
-        usbn_trace("UHCI: the southbridge turned the controller with the ports off");
-        usbn_move_root(dev, &uhci_root_ops, other);
-    } else if (present && (owner != dev)) {
-        for (int i = 0; i < UHCI_CHIPSET_MAX; i++) {
-            if ((chipset_hcs[i] == owner) && owner && !owner->present) {
-                usbn_move_root(owner, &uhci_root_ops, dev);
-                break;
-            }
-        }
-    }
+    if (dev->present != !!present)
+        usbn_trace("UHCI: the southbridge turned a controller %s", present ? "on" : "off");
+    dev->present = !!present;
 }
 
 int
@@ -1438,8 +1397,12 @@ static const device_t *usb_cards[] = {
 void
 usb_card_reset(void)
 {
-    if ((usb_card_type > 0) && (usb_card_type < usb_card_count()))
+    /* Its controller takes the card's ports (usb_bus.c). */
+    if ((usb_card_type > 0) && (usb_card_type < usb_card_count())) {
+        usbn_card_context = 1;
         device_add(usb_cards[usb_card_type]);
+        usbn_card_context = 0;
+    }
 }
 
 int

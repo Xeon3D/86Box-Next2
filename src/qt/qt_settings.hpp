@@ -30,6 +30,14 @@ public:
     int currentScsiCard(int i) const;
     int currentPcmciaCard(int s) const;
     int currentUsbCard() const;
+    /* 86Box-Next: the USB state as the pages have it now (Ports > USB). */
+    int     currentUsbHub() const;
+    bool    currentUsbKeyboard() const;
+    bool    currentUsbMouse() const;
+    int     currentUsbAssigned(const char *what) const;   /* the slot, -1 */
+    QString currentUsbAssignment(int slot) const;
+    bool    currentUsbPortExists(int slot) const;
+    void    usbStateChanged();   /* a page changed it: the others follow */
 
     static Settings *settings;
 protected slots:

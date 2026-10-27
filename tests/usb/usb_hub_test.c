@@ -73,10 +73,12 @@ main(void)
 
     fake_dev_init(&fake, "fake", USBN_SPEED_FULL);
     void *card = usb_uhci_via_device.init(&usb_uhci_via_device);
+    snprintf(usbn_port_cfg[0], sizeof(usbn_port_cfg[0]), "hub");   /* Settings > Ports > USB */
     void *hub  = usb_hub_4port_device.init(&usb_hub_4port_device);
 
-    CHECK(usbn_port_exists(2) && usbn_port_exists(5) && !usbn_port_exists(6), "the hub's four ports are bus slots 3-6");
-    CHECK(usbn_port_busy(0) && !usbn_port_busy(1), "the hub takes the first root port");
+    CHECK(usbn_port_exists(USBN_HUB_BASE) && usbn_port_exists(USBN_PORTS - 1), "the hub's four ports are bus slots");
+    CHECK(!usbn_port_exists(2), "a UHCI has two ports");
+    CHECK(usbn_port_busy(0) && !usbn_port_busy(1), "the hub is on the port it is assigned");
     fake_frames(1);
     d = usbn_port_device(0);
     CHECK(d && (d->route != NULL), "on port 1 as a hub (%s)", d ? d->name : "nothing");
@@ -94,9 +96,9 @@ main(void)
     CHECK((n >= 7) && (buf[1] == 0x29) && (buf[2] == 4), "hub descriptor: 4 ports (%d bytes)", n);
 
     /* A device on the hub's first port: power, connect, reset. */
-    CHECK(usbn_attach(2, &fake.dev), "attach to bus slot 3 (hub port 1)");
+    CHECK(usbn_attach(USBN_HUB_BASE, &fake.dev), "attach to hub port 1");
     fake_frames(1);
-    CHECK(usbn_port_device(2) == &fake.dev, "plugged into the hub");
+    CHECK(usbn_port_device(USBN_HUB_BASE) == &fake.dev, "plugged into the hub");
     CHECK(!(port_status(1) & 0x0001), "no connection before port power");
     CHECK(ctrl_out(0x23, 0x03, 8, 1) == 0, "SetPortFeature(PORT_POWER)");
     fake_frames(2);
@@ -122,7 +124,7 @@ main(void)
     CHECK((n == 1) && (buf[0] & 0x02), "status change endpoint: port 1 (%d, %02X)", n, buf[0]);
 
     /* Unplugged: the hub sees the disconnect. */
-    usbn_detach(2);
+    usbn_detach(USBN_HUB_BASE);
     fake_frames(1);
     st = port_status(1);
     CHECK(!(st & 0x0001) && (st & 0x00010000), "unplugged: no connection, C_PORT_CONNECTION (%08X)", st);

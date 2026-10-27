@@ -2037,12 +2037,16 @@ pc_reset_hard_init(void)
     /* 86Box-Next: the internal modem card, if one is fitted. */
     modem_card_reset();
 
-    /* 86Box-Next: the USB controller card, if one is fitted, the hub (on the
-       first free root port), and the emulated USB keyboard and mouse: the
-       first free ports, root ports first. */
+    /* 86Box-Next: the USB controller card, if one is fitted; an older
+       config's USB ports written down as assignments (once); then the hub,
+       the emulated USB keyboard and mouse and the remembered host devices,
+       each on the port it is assigned (Settings > Ports > USB). */
     usb_card_reset();
-    if (usbn_present())
+    if (usbn_present()) {
+        usbn_migrate(usbn_hub_type > 0, keyboard_type == KEYBOARD_TYPE_USB, mouse_get_device(mouse_type) == &mouse_usb_device);
         usbn_hub_reset();
+        usbn_restore_ports();
+    }
     usbn_hid_attach();
 
     /* 86Box-Next: the PC Card controller and its cards, if fitted. */

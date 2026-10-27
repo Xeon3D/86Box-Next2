@@ -28,6 +28,11 @@ public:
 public slots:
     void onCurrentMachineChanged(int machineId);
     void onUsbCardChanged();   /* 86Box-Next: the USB controller chosen on Other peripherals */
+    void refreshUsbNote();     /* the USB keyboard/mouse without a port: said in red */
+
+public:
+    bool usbKeyboard() const;
+    bool usbMouse() const;
 
 private slots:
     void on_comboBoxKeyboard_currentIndexChanged(int index);
@@ -53,6 +58,7 @@ private:
     int                tablet_config_changed = 0;
 
     int                keyboardType = 0;
+    class QLabel      *labelUsbNote = nullptr;
     int                mouseType = 0;
     int                tabletType = 0;
     int                joystickType = 0;

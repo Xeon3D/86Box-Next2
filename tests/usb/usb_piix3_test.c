@@ -229,13 +229,16 @@ test_process_error(void)
 static void
 test_ports_owner(void)
 {
-    static const usbn_root_ops_t other = { NULL, NULL };
+    static const usbn_root_ops_t other = { NULL, NULL, NULL, NULL };
     int                          x;
 
-    CHECK(usbn_present(), "the onboard controller has the ports");
-    CHECK(!usbn_set_root(&other, &x, 0), "a card fitted later gets none");
-    CHECK(!usbn_set_root(NULL, &x, 0), "and cannot take them away");
-    CHECK(usbn_present(), "still the onboard one's");
+    CHECK(usbn_present() && (usbn_port_role(0) == USBN_ROLE_ONBOARD) && usbn_port_exists(1), "the onboard controller has the motherboard's ports");
+    usbn_card_context = 1;   /* as usb_card_reset() makes the card */
+    CHECK(usbn_set_root(&other, &x, 0), "a card fitted later gets ports of its own");
+    usbn_card_context = 0;
+    CHECK(usbn_port_exists(USBN_ROLE_CARD * USBN_ROOT_PORTS) && usbn_port_exists(0), "the card's and the motherboard's side by side");
+    CHECK(usbn_set_root(NULL, &x, 0) && !usbn_port_exists(USBN_ROLE_CARD * USBN_ROOT_PORTS), "the card goes with its ports");
+    CHECK(usbn_port_exists(0), "the motherboard's stay");
 }
 
 int

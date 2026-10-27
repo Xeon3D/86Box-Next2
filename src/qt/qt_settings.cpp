@@ -31,6 +31,7 @@ extern "C" {
 #include <86box/plat.h>
 #include <86box/ui.h>
 #include <86box/device.h>
+#include <86box/mouse.h>
 #include <86box/video.h>
 #include <86box/timer.h>
 #include <86box/fdd.h>
@@ -65,6 +66,7 @@ extern "C" {
 #include "qt_settingsfloppycdrom.hpp"
 #include "qt_settingsotherremovable.hpp"
 #include "qt_settingsotherperipherals.hpp"
+#include "qt_usb_manager.hpp"
 
 #include "qt_preferences.hpp"
 
@@ -287,6 +289,7 @@ Settings::ensurePage(int index)
                 connect(otherPeripherals, &SettingsOtherPeripherals::usbCardChanged, this, [this] {
                     if (input != nullptr)
                         input->onUsbCardChanged();
+                    usbStateChanged();
                 });
                 if (machineId != ::machine)
                     otherPeripherals->onCurrentMachineChanged(machineId);
@@ -358,6 +361,63 @@ Settings::currentUsbCard() const
     if (otherPeripherals != nullptr)
         return otherPeripherals->usbCard();
     return usb_card_type;
+}
+
+int
+Settings::currentUsbHub() const
+{
+    if (otherPeripherals != nullptr)
+        return otherPeripherals->usbHub();
+    return usbn_hub_type;
+}
+
+bool
+Settings::currentUsbKeyboard() const
+{
+    if (input != nullptr)
+        return input->usbKeyboard();
+    return keyboard_type == KEYBOARD_TYPE_USB;
+}
+
+bool
+Settings::currentUsbMouse() const
+{
+    if (input != nullptr)
+        return input->usbMouse();
+    return mouse_get_device(mouse_type) == &mouse_usb_device;
+}
+
+bool
+Settings::currentUsbPortExists(int slot) const
+{
+    return UsbManager::portExistsFor(currentMachine(), currentUsbCard(), currentUsbHub(), slot);
+}
+
+QString
+Settings::currentUsbAssignment(int slot) const
+{
+    if (ports != nullptr)
+        return ports->usbAssignment(slot);
+    return QString(usbn_port_cfg[slot]);
+}
+
+int
+Settings::currentUsbAssigned(const char *what) const
+{
+    for (int p = 0; p < USBN_PORTS; p++) {
+        if (currentUsbPortExists(p) && (currentUsbAssignment(p) == what))
+            return p;
+    }
+    return -1;
+}
+
+void
+Settings::usbStateChanged()
+{
+    if (ports != nullptr)
+        ports->refreshUsb();
+    if (input != nullptr)
+        input->refreshUsbNote();
 }
 
 void

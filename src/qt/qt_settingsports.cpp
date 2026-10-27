@@ -42,6 +42,12 @@ extern "C" {
 
 #include "qt_settingsports.hpp"
 #include "ui_qt_settingsports.h"
+#include "qt_settings.hpp"
+#include "qt_usb_manager.hpp"
+#include <QComboBox>
+#include <QGridLayout>
+#include <QLabel>
+#include <QVBoxLayout>
 
 #include <QStandardItem>
 
@@ -61,6 +67,7 @@ SettingsPorts::SettingsPorts(QWidget *parent)
         com_device_cfg_changed[i] = 0;
     }
 
+    buildUsbTab();
     onCurrentMachineChanged(machine);
 }
 
@@ -134,6 +141,10 @@ SettingsPorts::changed()
         }
     }
 
+    /* What is on the USB ports: plugged in at the hard reset. */
+    for (int p = 0; p < USBN_PORTS; p++)
+        has_changed |= (usbCfg[p] != QString(usbn_port_cfg[p]));
+
     return has_changed ? (SETTINGS_CHANGED | SETTINGS_REQUIRE_HARD_RESET) :
                          (soft_changed ? SETTINGS_CHANGED : 0);
 }
@@ -164,10 +175,135 @@ SettingsPorts::save(int soft)
             com_ports[i].enabled = checkBox->isChecked() ? 1 : 0;
     }
 
+    for (int p = 0; p < USBN_PORTS; p++)
+        snprintf(usbn_port_cfg[p], sizeof(usbn_port_cfg[p]), "%s", usbCfg[p].toUtf8().constData());
+    usbn_layout = 2;   /* assignments by port name from now on */
+
     if (soft)
         return;
 
     jumpered_internal_ecp_dma = ui->comboBoxLptECPDMA->currentData().toInt();
+}
+
+/* ------------------------------------------------------------------ USB --- */
+
+/* 86Box-Next: the USB tab -- a row for every port of the USB controllers the
+   machine will have (the motherboard's, the card's) and of the hub, each with
+   what is plugged into it: the USB keyboard, the USB mouse, the hub (on a
+   controller's port), or a host device connected from the USB menu. */
+void
+SettingsPorts::buildUsbTab()
+{
+    auto *tab    = new QWidget();
+    auto *layout = new QVBoxLayout(tab);
+    auto *intro  = new QLabel(tr("What is plugged into each USB port when the machine starts. The USB keyboard and mouse are chosen on the Input devices page, the USB card and hub on Other peripherals; host devices are connected from the USB menu while the machine runs."));
+    auto *grid   = new QGridLayout();
+
+    intro->setWordWrap(true);
+    layout->addWidget(intro);
+    usbNone = new QLabel(tr("This machine has no USB controller: choose a motherboard with USB, or fit a USB card on Other peripherals."));
+    usbNone->setWordWrap(true);
+    layout->addWidget(usbNone);
+    for (int p = 0; p < USBN_PORTS; p++) {
+        usbCfg[p]   = QString(usbn_port_cfg[p]);
+        usbLabel[p] = new QLabel(UsbManager::portLabel(p) + ":");
+        usbCombo[p] = new QComboBox();
+        usbCombo[p]->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        grid->addWidget(usbLabel[p], p, 0);
+        grid->addWidget(usbCombo[p], p, 1);
+        connect(usbCombo[p], qOverload<int>(&QComboBox::currentIndexChanged), this, [this, p](int) { usbChoiceChanged(p); });
+    }
+    layout->addLayout(grid);
+    layout->addStretch(1);
+    ui->tabWidgetPorts->addTab(tab, tr("USB"));
+}
+
+QString
+SettingsPorts::usbAssignment(int slot) const
+{
+    return ((slot >= 0) && (slot < USBN_PORTS)) ? usbCfg[slot] : QString();
+}
+
+/* The rows the machine has now, and on each the choices it can take. */
+void
+SettingsPorts::refreshUsb()
+{
+    Settings *s = Settings::settings;
+
+    if (usbCombo[0] == nullptr)
+        return;
+
+    const int  card     = s ? s->currentUsbCard() : usb_card_type;
+    const int  hubType  = s ? s->currentUsbHub() : usbn_hub_type;
+    const bool keyboard = s ? s->currentUsbKeyboard() : false;
+    const bool mouse    = s ? s->currentUsbMouse() : false;
+    bool       any      = false;
+
+    /* A hub just chosen goes on the first free controller port. */
+    if (hubType > 0) {
+        bool placed = false;
+        for (int p = 0; p < USBN_HUB_BASE; p++)
+            placed |= UsbManager::portExistsFor(machineId, card, hubType, p) && (usbCfg[p] == "hub");
+        for (int p = 0; (p < USBN_HUB_BASE) && !placed; p++) {
+            if (UsbManager::portExistsFor(machineId, card, hubType, p) && usbCfg[p].isEmpty()) {
+                usbCfg[p] = "hub";
+                placed    = true;
+            }
+        }
+    }
+
+    usbFilling = true;
+    for (int p = 0; p < USBN_PORTS; p++) {
+        const bool exists = UsbManager::portExistsFor(machineId, card, hubType, p);
+
+        usbLabel[p]->setVisible(exists);
+        usbCombo[p]->setVisible(exists);
+        if (!exists)
+            continue;
+        any = true;
+
+        QComboBox *c = usbCombo[p];
+        c->clear();
+        c->addItem(tr("None"), QString());
+        if (keyboard)
+            c->addItem(tr("USB keyboard"), QString("keyboard"));
+        if (mouse)
+            c->addItem(tr("USB mouse"), QString("mouse"));
+        if ((hubType > 0) && (usbn_port_role(p) >= 0))
+            c->addItem(tr("USB hub"), QString("hub"));
+        unsigned vid, pid;
+        if (sscanf(usbCfg[p].toUtf8().constData(), "%x:%x", &vid, &pid) == 2)
+            c->addItem(tr("Host device %1 (from the USB menu)").arg(usbCfg[p]), usbCfg[p]);
+        const int i = c->findData(usbCfg[p]);
+        c->setCurrentIndex((i >= 0) ? i : 0);
+        if (i < 0)
+            usbCfg[p].clear();   /* no longer possible here (that device is not chosen) */
+    }
+    usbNone->setVisible(!any);
+    usbFilling = false;
+}
+
+/* One port's choice: the keyboard, mouse and hub are on one port each, so
+   choosing one here takes it off any other. */
+void
+SettingsPorts::usbChoiceChanged(int slot)
+{
+    if (usbFilling)
+        return;
+
+    const QString what = usbCombo[slot]->currentData().toString();
+
+    usbCfg[slot] = what;
+    if ((what == "keyboard") || (what == "mouse") || (what == "hub")) {
+        for (int p = 0; p < USBN_PORTS; p++) {
+            if ((p != slot) && (usbCfg[p] == what))
+                usbCfg[p].clear();
+        }
+    }
+    if (Settings::settings)
+        Settings::settings->usbStateChanged();
+    else
+        refreshUsb();
 }
 
 /* The character devices, for the parallel and serial port lists alike. */
@@ -331,6 +467,8 @@ SettingsPorts::onCurrentMachineChanged(int machineId)
             }
         }
     }
+
+    refreshUsb();   /* the USB ports this machine has */
 }
 
 void

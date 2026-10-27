@@ -106,10 +106,70 @@ UsbManager::toolTip() const
         if (!usbn_port_exists(p))
             continue;   /* a hub's ports, without the hub */
         usbn_port_name(p, name, sizeof(name));
-        const QString port = (p < USBN_ROOT_PORTS) ? tr("Port %1").arg(p + 1) : tr("Hub port %1").arg(p - USBN_ROOT_PORTS + 1);
-        tip += "\n" + tr("%1: %2").arg(port, name[0] ? QString::fromUtf8(name) : tr("empty"));
+        tip += "\n" + tr("%1: %2").arg(portLabel(p), name[0] ? QString::fromUtf8(name) : tr("empty"));
     }
     return tip;
+}
+
+/* The ports of each controller, as the machine will have them: the
+   southbridge's two (the ALi M1543's M5237: three connectors; the VIA 686A/B:
+   a second controller with two more), the card's two. */
+int
+UsbManager::machinePorts(int machineId, int card, int role)
+{
+    const machine_t *m = &machines[machineId];
+
+    switch (role) {
+        case USBN_ROLE_ONBOARD:
+            if (!machineHasOnboardUsb(machineId))
+                return 0;
+            return ((m->chipset == MACHINE_CHIPSET_ALI_ALADDIN_IV_PLUS) || (m->chipset == MACHINE_CHIPSET_ALI_ALADDIN_V) ||
+                    (m->chipset == MACHINE_CHIPSET_ALI_ALADDIN_PRO_II)) ? 3 : 2;
+        case USBN_ROLE_ONBOARD2:
+            if (!machineHasOnboardUsb(machineId))
+                return 0;
+            return ((m->init == machine_at_6via90ap_init) || (m->init == machine_at_cuv4xls_init) || (m->init == machine_at_ms6318_init) ||
+                    (m->init == machine_at_m790mr_init) || (m->init == machine_at_cairo5_init) || (m->init == machine_at_ficva503a_init) ||
+                    (m->init == machine_at_5emapro_init)) ? 2 : 0;
+        case USBN_ROLE_CARD:
+            return ((card > 0) && (machine_has_bus(machineId, MACHINE_BUS_PCI) > 0)) ? 2 : 0;
+        default:
+            return 0;
+    }
+}
+
+bool
+UsbManager::portExistsFor(int machineId, int card, int hub, int slot)
+{
+    const int role = usbn_port_role(slot);
+
+    if (role == -1) {
+        int any = 0;
+        for (int r = 0; r < USBN_ROLES; r++)
+            any += machinePorts(machineId, card, r);
+        return (hub > 0) && (any > 0);
+    }
+    return (role >= 0) && ((slot % USBN_ROOT_PORTS) < machinePorts(machineId, card, role));
+}
+
+/* A port by the controller it is on, as Settings > Ports > USB names it. */
+QString
+UsbManager::portLabel(int slot)
+{
+    const int n = (usbn_port_role(slot) == -1) ? (slot - USBN_HUB_BASE + 1) : ((slot % USBN_ROOT_PORTS) + 1);
+
+    switch (usbn_port_role(slot)) {
+        case USBN_ROLE_ONBOARD:
+            return tr("Motherboard port %1").arg(n);
+        case USBN_ROLE_ONBOARD2:
+            return tr("Motherboard (second controller) port %1").arg(n);
+        case USBN_ROLE_CARD:
+            return tr("USB card port %1").arg(n);
+        case -1:
+            return tr("Hub port %1").arg(n);
+        default:
+            return QString();
+    }
 }
 
 bool
@@ -175,6 +235,7 @@ UsbManager::poll()
             present |= (d.vid == vid) && (d.pid == pid);
         if (!present && !firstPoll) {
             usbn_detach(p);
+            usbn_port_cfg[p][0] = '\0';
             config_save();
         }
     }
@@ -228,15 +289,17 @@ UsbManager::connectToVm(const usbn_host_info_t &d, bool quiet)
 
     if (!usbn_present())
         return false;
+    /* The first port with nothing on it and nothing assigned to it (the
+       keyboard, mouse and hub keep theirs, plugged in or not). */
     for (int p = 0; p < USBN_PORTS; p++) {
-        if (!usbn_port_busy(p)) {
+        if (!usbn_port_busy(p) && !usbn_port_cfg[p][0]) {
             port = p;
             break;
         }
     }
     if (port < 0) {
         if (!quiet)
-            QMessageBox::warning(parentWidget, tr("USB"), tr("All USB ports of the virtual machine are in use. Disconnect a device from the USB menu first, or add a USB hub in Settings > Other peripherals."));
+            QMessageBox::warning(parentWidget, tr("USB"), tr("All USB ports of the virtual machine are in use or assigned. Disconnect a device from the USB menu first, free a port in Settings > Ports > USB, or add a USB hub in Settings > Other peripherals."));
         return false;
     }
 
@@ -261,6 +324,7 @@ UsbManager::disconnectFromVm(uint16_t vid, uint16_t pid)
     if (p < 0)
         return;
     usbn_detach(p);
+    usbn_port_cfg[p][0] = '\0';
     config_save();
 }
 

@@ -896,17 +896,17 @@ usbn_hid_create_mouse(int buttons)
     return &h->dev;
 }
 
-/* A device into the first free port. */
+/* A device into the port it is assigned (Settings > Ports > USB): what, in
+   usbn_port_cfg.  Not assigned, or the port is not there (no hub), it is not
+   plugged in. */
 static void
-hid_plug(usbn_device_t *d)
+hid_plug(usbn_device_t *d, const char *what)
 {
-    for (int p = 0; p < USBN_PORTS; p++) {
-        if (!usbn_port_busy(p)) {
-            usbn_attach(p, d);
-            return;
-        }
-    }
-    pclog("USB: no free port for the %s\n", d->name);
+    const int p = usbn_assigned(what);
+
+    if ((p >= 0) && usbn_attach(p, d))
+        return;
+    pclog("USB: the %s is not connected to a USB port (Settings > Ports > USB)\n", d->name);
     d->destroy(d);
 }
 
@@ -930,10 +930,10 @@ usbn_hid_attach(void)
     if (!usbn_present())
         return;
     if (keyboard_type == KEYBOARD_TYPE_USB)
-        hid_plug(usbn_hid_create_keyboard(config_int(&keyboard_usb_device, "keys")));
+        hid_plug(usbn_hid_create_keyboard(config_int(&keyboard_usb_device, "keys")), "keyboard");
     if (mouse_get_device(mouse_type) == &mouse_usb_device) {
         const int buttons = config_int(&mouse_usb_device, "buttons");
-        hid_plug(usbn_hid_create_mouse(buttons));
+        hid_plug(usbn_hid_create_mouse(buttons), "mouse");
         mouse_set_buttons(buttons);   /* the host's mouse is captured for it, as for a PS/2 one */
     }
 }

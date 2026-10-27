@@ -8,7 +8,7 @@
  *             usb_dev_packet() with the data toggle it expects (our
  *             controllers do not track toggles).
  *
- *             The hub's downstream ports are bus slots USBN_ROOT_PORTS and
+ *             The hub's downstream ports are bus slots USBN_HUB_BASE and
  *             up: what is plugged there (the emulated keyboard and mouse,
  *             passed-through host devices) reaches the hub as a stand-in
  *             usb_dev_t ("shim") whose bus reset resets our device, and the
@@ -312,14 +312,16 @@ usb_dev_add(usb_dev_t *udev, UNUSED(const device_t *info))
     if (udev->ops->route)
         b->dev.route = bridge_route;
 
-    for (int p = 0; p < USBN_ROOT_PORTS; p++) {
-        if (!usbn_port_busy(p) && usbn_attach(p, &b->dev)) {
+    /* The hub goes on the controller port it is assigned (Settings > Ports >
+       USB): "hub" in usbn_port_cfg.  Not assigned, it is not plugged in. */
+    {
+        const int p = usbn_assigned("hub");
+
+        if ((p >= 0) && (usbn_port_role(p) >= 0) && usbn_attach(p, &b->dev))
             b->port = p;
-            break;
-        }
     }
     if (b->port < 0) {
-        pclog("USB: no free root port for the %s\n", udev->name);
+        pclog("USB: the %s is not connected to a USB port (Settings > Ports > USB)\n", udev->name);
         bridges[slot] = NULL;
         free(b);
         return;

@@ -161,7 +161,27 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   which also sets its children's `fs_view`); PORT_HIGH_SPEED for a high-speed child, the TT requests
   accepted. The EHCI does split transactions in one step: a queue head with EPS full/low speed reaches
   the device through the hub's route, and siTDs (full-speed isochronous) run one transaction a frame.
-  Tests: Usb.hub2. Not yet tried in a guest: every PIIX3 board's onboard UHCI takes the ports first. `usb.h` and
+  Tests: Usb.hub2. Windows 2000 SP4 (a copy of the rig on its P/I-P55TVP4, VIA USB 2.0 card): its EHCI
+  driver takes the card's port, the hub runs at high speed, a low-speed USB mouse behind it works
+  through the TT.
+  Ports (2026-10-27): every controller has its own (`usb_bus.c` roles: `USBN_ROLE_ONBOARD`, `_ONBOARD2`
+  -- the VIA 686's second UHCI -- and `_CARD`, a block of `USBN_ROOT_PORTS` 3 slots each, then the hub's
+  4 at `USBN_HUB_BASE`); a controller made while `usbn_card_context` is set (`usb_card_reset()`) is the
+  card's, any other the motherboard's, so a card on a PIIX3 board has ports beside the PIIX3's. A
+  turned-off VIA function keeps its devices, unreachable (no moving ports any more). What is on each
+  port is the user's: Settings > Ports > USB (`SettingsPorts::buildUsbTab()`: a row per port the
+  machine, card and hub give -- `UsbManager::machinePorts()`: ALi 3, the seven 686 boards a second
+  controller -- each None / USB keyboard / USB mouse / USB hub (controller ports) / a host device from the
+  USB menu; one port each for the keyboard, mouse and hub; a hub just chosen goes on the first free
+  controller port). Saved in `[USB]` by port name (`onboard_1`, `onboard2_2`, `card_1`, `hub_3`, values
+  `keyboard`/`mouse`/`hub`/`vvvv:pppp`) with `layout = 2`; hard reset. The keyboard, mouse and hub are
+  plugged in only where assigned (`usbn_assigned()`); Input devices says in red when the chosen USB
+  keyboard or mouse has no port (`SettingsInput::refreshUsbNote()`; pages follow each other through
+  `Settings::usbStateChanged()`). An older config (no `layout`): its `port1`-`port6` and the old
+  first-free placement of hub, keyboard and mouse are written down once at the hard reset
+  (`usbn_migrate()`). The USB menu puts a host device on the first port with nothing on it and nothing
+  assigned; disconnecting forgets the assignment (`usbn_detach()` no longer does). Tests: Usb.chipset
+  (keys, migration). `usb.h` and
   `usb_legacy.c` are KEEP_OURS (usb_chipset.c implements that API: a southbridge change upstream that
   needs a new usb.h call fails to build here until ported). Upstream's other USB edits (keyboard.c,
   mouse.c, config.c, 86box.c, the Qt pages, src/CMakeLists.txt) still conflict once and are merged by hand.

@@ -18,11 +18,19 @@
 extern "C" {
 #endif
 
-/* The bus's slots: the root ports, then the downstream ports of a hub (the
-   4-port hub, usb_hub.c, on a root port; they exist while it does). */
-#define USBN_ROOT_PORTS 2
-#define USBN_HUB_PORTS  4
-#define USBN_PORTS      (USBN_ROOT_PORTS + USBN_HUB_PORTS)
+/* The bus's slots: a block per controller -- the motherboard's, a second
+   one of the motherboard's (the VIA 686), the card's -- each with up to
+   three ports, then the hub's four (while a hub is fitted).  What is on each
+   is the user's choice (Settings > Ports > USB), saved by the slot's name:
+   onboard_1, onboard2_2, card_1, hub_3 (usbn_port_key()). */
+#define USBN_ROLE_ONBOARD  0
+#define USBN_ROLE_ONBOARD2 1
+#define USBN_ROLE_CARD     2
+#define USBN_ROLES         3
+#define USBN_ROOT_PORTS    3
+#define USBN_HUB_PORTS     4
+#define USBN_HUB_BASE      (USBN_ROLES * USBN_ROOT_PORTS)
+#define USBN_PORTS         (USBN_HUB_BASE + USBN_HUB_PORTS)
 
 #define USB_PID_SETUP   0x2d
 #define USB_PID_IN      0x69
@@ -70,7 +78,7 @@ typedef struct usbn_root_ops_t {
     int  (*idle)(void *priv, int port);     /* nothing reaches the port: its device is suspended (optional) */
 } usbn_root_ops_t;
 
-/* The hub's downstream ports (bus slots USBN_ROOT_PORTS on), through the
+/* The hub's downstream ports (bus slots USBN_HUB_BASE on), through the
    bridge to upstream's usb_hub.c (usb_devbridge.c). */
 typedef struct usbn_hub_ops_t {
     void (*connect)(void *priv, int hub_port, usbn_device_t *dev);
@@ -78,13 +86,25 @@ typedef struct usbn_hub_ops_t {
     void (*resume)(void *priv, int hub_port);
 } usbn_hub_ops_t;
 
-/* A controller takes the ports (returns 0 when another one has them: the
-   first one keeps them -- a motherboard's own, made with the chipset, before
-   any card), or gives them back (ops NULL, only the one that has them). */
+/* A controller comes with its ports (two; usbn_set_root_ports() for more),
+   in the card's block while usbn_card_context is set (usb_card_reset()),
+   else the motherboard's; or goes (ops NULL), releasing what was on them. */
+extern int            usbn_card_context;
 extern int            usbn_set_root(const usbn_root_ops_t *ops, void *priv, int high_speed);
-extern void           usbn_apply(void *priv);       /* once per frame, from the root (others: no-op) */
-extern int            usbn_bus_high_speed(void);    /* the root takes USB 2.0 devices */
+extern void           usbn_set_root_ports(void *priv, int nports);
+extern void           usbn_apply(void *priv);       /* once per frame, from each controller */
+extern int            usbn_bus_high_speed(void);    /* a controller takes USB 2.0 devices */
+extern int            usbn_port_high_speed(int port);
 extern usbn_device_t *usbn_port_device(int port);
+extern int            usbn_port_role(int port);     /* USBN_ROLE_*, -1 the hub's, -2 none */
+extern const char    *usbn_port_key(int port, char *buf, int len);
+extern int            usbn_port_from_key(const char *key);
+/* What each port is assigned (usbn_port_cfg: "keyboard", "mouse", "hub", or a
+   host device "vvvv:pppp"), and the slot that has one of the first three. */
+extern int            usbn_assigned(const char *what);
+extern int            usbn_layout;                  /* (C) 2: assignments by port name */
+extern char           usbn_legacy_cfg[6][16];       /* (C) an older config's port1-port6 */
+extern void           usbn_migrate(int hub_fitted, int keyboard, int mouse);
 /* A hub came (ops) or went (NULL): its downstream ports are bus slots. */
 extern void           usbn_set_hub(const usbn_hub_ops_t *ops, void *priv);
 extern int            usbn_port_exists(int port);
@@ -92,11 +112,6 @@ extern int            usbn_port_exists(int port);
 extern int            usbn_root_idle(usbn_device_t *dev);
 /* A root port's device, or one behind the hub on it, answering at addr. */
 extern usbn_device_t *usbn_route(usbn_device_t *root_dev, uint8_t addr, int low_speed);
-/* Hand the ports from one controller to another without unplugging anything
-   (a southbridge turned the owner's function off).  Returns 0 unless from
-   has them. */
-extern int            usbn_move_root(void *from, const usbn_root_ops_t *ops, void *priv);
-extern void          *usbn_root_owner(void);
 /* A device asks its port to resume (remote wakeup); emulation thread. */
 extern void           usbn_remote_wakeup(usbn_device_t *dev);
 /* One transaction's bus time in ns, data packet of len bytes with worst-case
@@ -235,7 +250,7 @@ extern int         usbn_hub_get_from_internal_name(const char *s);
 extern void        usbn_hub_reset(void);
 
 /* Remembered attachments ("vvvv:pppp" per port), for the config file. */
-extern char usbn_port_cfg[USBN_PORTS][16];
+extern char usbn_port_cfg[USBN_PORTS][16];   /* (C) by slot */
 extern void usbn_restore_ports(void);
 
 #ifdef __cplusplus

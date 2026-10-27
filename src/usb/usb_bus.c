@@ -89,11 +89,21 @@ static mutex_t              *lock;
 static usbn_device_t        *devs[USBN_PORTS];    /* plugged in, emulation side   */
 static usbn_device_t        *plug[USBN_PORTS];    /* waiting to be plugged in     */
 static int                   unplug[USBN_PORTS];  /* waiting to be pulled out     */
-static const usbn_root_ops_t *root;
-static void                 *root_priv;
-static int                   root_high_speed;
-static const usbn_hub_ops_t  *hub;        /* a hub's downstream ports, slots USBN_ROOT_PORTS on */
+static const usbn_hub_ops_t  *hub;        /* a hub's downstream ports, slots USBN_HUB_BASE on */
 static void                  *hub_priv;
+
+/* The controllers, one per role, each with its own block of slots. */
+typedef struct root_t {
+    const usbn_root_ops_t *ops;
+    void                  *priv;
+    int                    nports;
+    int                    high_speed;
+} root_t;
+static root_t roots[USBN_ROLES];
+
+int usbn_card_context;   /* the USB card is being made: its controller is the card's */
+int usbn_layout;         /* (C) 2: the ports are assigned by name; 0: an older config */
+char usbn_legacy_cfg[6][16];   /* (C) an older config's [USB] port1-port6 */
 
 static void
 bus_lock(void)
@@ -109,53 +119,134 @@ bus_unlock(void)
     thread_release_mutex(lock);
 }
 
+static int
+role_of(const void *priv)
+{
+    for (int r = 0; r < USBN_ROLES; r++) {
+        if (roots[r].ops && (roots[r].priv == priv))
+            return r;
+    }
+    return -1;
+}
+
+int
+usbn_port_role(int slot)
+{
+    if ((slot < 0) || (slot >= USBN_PORTS))
+        return -2;
+    return (slot < USBN_HUB_BASE) ? (slot / USBN_ROOT_PORTS) : -1;
+}
+
+/* Release what is plugged into a slot (the bus is going away). */
+static void
+slot_release(int p)
+{
+    if (devs[p] && devs[p]->destroy)
+        devs[p]->destroy(devs[p]);
+    if (plug[p] && plug[p]->destroy)
+        plug[p]->destroy(plug[p]);
+    devs[p] = plug[p] = NULL;
+    unplug[p]         = 0;
+}
+
+/* A controller comes (ops) or goes (NULL).  Each has its own ports: the
+   card's when it is made by usb_card_reset(), else the southbridge's (the
+   first, or the VIA 686's second).  Returns 1 when it has ports. */
 int
 usbn_set_root(const usbn_root_ops_t *ops, void *priv, int high_speed)
 {
+    int r;
+
     bus_lock();
-    if ((ops == NULL) && (root_priv != priv)) {
-        bus_unlock();   /* not the one that has the ports */
-        return 0;
-    }
-    if ((ops != NULL) && (root != NULL)) {
-        bus_unlock();
-        pclog("USB: the ports are already another USB controller's; this one has none\n");
-        return 0;
-    }
     if (ops == NULL) {
-        /* The card is going away: everything plugged in is released. */
-        for (int p = 0; p < USBN_PORTS; p++) {
-            if (devs[p] && devs[p]->destroy)
-                devs[p]->destroy(devs[p]);
-            if (plug[p] && plug[p]->destroy)
-                plug[p]->destroy(plug[p]);
-            devs[p] = plug[p] = NULL;
-            unplug[p]         = 0;
+        r = role_of(priv);
+        if (r < 0) {
+            bus_unlock();
+            return 0;
         }
-        hub      = NULL;
-        hub_priv = NULL;
+        for (int i = 0; i < USBN_ROOT_PORTS; i++)
+            slot_release(r * USBN_ROOT_PORTS + i);
+        memset(&roots[r], 0, sizeof(root_t));
+        /* The last controller gone: the hub's ports with it. */
+        int any = 0;
+        for (int i = 0; i < USBN_ROLES; i++)
+            any |= (roots[i].ops != NULL);
+        if (!any) {
+            for (int p = USBN_HUB_BASE; p < USBN_PORTS; p++)
+                slot_release(p);
+            hub      = NULL;
+            hub_priv = NULL;
+        }
+        bus_unlock();
+        usbn_trace("USB controller removed");
+        return 1;
     }
-    root            = ops;
-    root_priv       = ops ? priv : NULL;
-    root_high_speed = high_speed;
+    if (usbn_card_context)
+        r = USBN_ROLE_CARD;
+    else
+        r = roots[USBN_ROLE_ONBOARD].ops ? USBN_ROLE_ONBOARD2 : USBN_ROLE_ONBOARD;
+    if (roots[r].ops) {
+        bus_unlock();
+        pclog("USB: no place for another USB controller\n");
+        return 0;
+    }
+    roots[r].ops        = ops;
+    roots[r].priv       = priv;
+    roots[r].nports     = 2;
+    roots[r].high_speed = high_speed;
     bus_unlock();
 
-    if (ops && getenv("BOX86NEXT_USB_TRACE") && !usbn_trace_on)
+    if (getenv("BOX86NEXT_USB_TRACE") && !usbn_trace_on)
         usbn_trace_enable(1);
-    usbn_trace(ops ? "USB controller fitted (%s)" : "USB controller removed", high_speed ? "USB 2.0" : "USB 1.1");
+    usbn_trace("USB controller fitted (%s): %s", high_speed ? "USB 2.0" : "USB 1.1",
+               (r == USBN_ROLE_CARD) ? "the card" : ((r == USBN_ROLE_ONBOARD) ? "the motherboard's" : "the motherboard's second"));
     return 1;
+}
+
+/* The ports a controller has, when it is not two (the ALi M5237's three). */
+void
+usbn_set_root_ports(void *priv, int nports)
+{
+    int r = role_of(priv);
+
+    if (r >= 0)
+        roots[r].nports = (nports > USBN_ROOT_PORTS) ? USBN_ROOT_PORTS : nports;
 }
 
 int
 usbn_present(void)
 {
-    return root != NULL;
+    for (int r = 0; r < USBN_ROLES; r++) {
+        if (roots[r].ops)
+            return 1;
+    }
+    return 0;
 }
 
 int
 usbn_bus_high_speed(void)
 {
-    return root_high_speed;
+    for (int r = 0; r < USBN_ROLES; r++) {
+        if (roots[r].ops && roots[r].high_speed)
+            return 1;
+    }
+    return 0;
+}
+
+int
+usbn_port_high_speed(int slot)
+{
+    const int r = usbn_port_role(slot);
+
+    if (r == -1) {
+        /* Behind the hub: as fast as the controller it is on. */
+        for (int p = 0; p < USBN_HUB_BASE; p++) {
+            if (devs[p] && devs[p]->route)
+                return usbn_port_high_speed(p);
+        }
+        return 0;
+    }
+    return (r >= 0) && roots[r].ops && roots[r].high_speed;
 }
 
 usbn_device_t *
@@ -164,51 +255,18 @@ usbn_port_device(int port)
     return ((port >= 0) && (port < USBN_PORTS)) ? devs[port] : NULL;
 }
 
-int
-usbn_move_root(void *from, const usbn_root_ops_t *ops, void *priv)
-{
-    const usbn_root_ops_t *old;
-
-    bus_lock();
-    if ((root == NULL) || (root_priv != from) || (ops == NULL)) {
-        bus_unlock();
-        return 0;
-    }
-    old = root;
-    for (int p = 0; p < USBN_ROOT_PORTS; p++) {
-        if (devs[p])
-            old->disconnect(from, p);
-    }
-    root      = ops;
-    root_priv = priv;
-    for (int p = 0; p < USBN_ROOT_PORTS; p++) {
-        if (devs[p])
-            ops->connect(priv, p, devs[p]);
-    }
-    bus_unlock();
-    usbn_trace("the USB ports moved to another controller");
-    return 1;
-}
-
-void *
-usbn_root_owner(void)
-{
-    return root_priv;
-}
-
 void
 usbn_remote_wakeup(usbn_device_t *dev)
 {
-    if (root == NULL)
-        return;
     for (int p = 0; p < USBN_PORTS; p++) {
         if (devs[p] != dev)
             continue;
-        if (p < USBN_ROOT_PORTS) {
-            if (root->resume)
-                root->resume(root_priv, p);
+        const int r = usbn_port_role(p);
+        if (r >= 0) {
+            if (roots[r].ops && roots[r].ops->resume)
+                roots[r].ops->resume(roots[r].priv, p % USBN_ROOT_PORTS);
         } else if (hub && hub->resume)
-            hub->resume(hub_priv, p - USBN_ROOT_PORTS);
+            hub->resume(hub_priv, p - USBN_HUB_BASE);
         return;
     }
 }
@@ -220,23 +278,27 @@ usbn_set_hub(const usbn_hub_ops_t *ops, void *priv)
 {
     hub      = ops;
     hub_priv = ops ? priv : NULL;
-    usbn_trace(ops ? "a hub is on the bus: ports %d-%d" : "the hub is gone", USBN_ROOT_PORTS + 1, USBN_PORTS);
+    usbn_trace(ops ? "a hub is on the bus" : "the hub is gone");
 }
 
 int
 usbn_port_exists(int port)
 {
-    return (port >= 0) && ((port < USBN_ROOT_PORTS) || ((port < USBN_PORTS) && (hub != NULL)));
+    const int r = usbn_port_role(port);
+
+    if (r == -1)
+        return hub != NULL;
+    return (r >= 0) && roots[r].ops && ((port % USBN_ROOT_PORTS) < roots[r].nports);
 }
 
 int
 usbn_root_idle(usbn_device_t *dev)
 {
-    if ((root == NULL) || (root->idle == NULL))
-        return 0;
-    for (int p = 0; p < USBN_ROOT_PORTS; p++) {
-        if (devs[p] == dev)
-            return root->idle(root_priv, p);
+    for (int p = 0; p < USBN_HUB_BASE; p++) {
+        if (devs[p] == dev) {
+            const root_t *rt = &roots[usbn_port_role(p)];
+            return (rt->ops && rt->ops->idle) ? rt->ops->idle(rt->priv, p % USBN_ROOT_PORTS) : 0;
+        }
     }
     return 0;
 }
@@ -264,42 +326,137 @@ usbn_bus_ns(int low_speed, int iso, int in, int len)
     return 9107.0 + (83.54 * bits);
 }
 
-/* Called by the root controller once per frame, on the emulation thread;
-   a controller without the ports calls it too, and nothing happens. */
+/* ------------------------------------------------------- port names --- */
+
+static const char *const role_keys[USBN_ROLES] = { "onboard", "onboard2", "card" };
+
+/* The config key of a slot: onboard_1, onboard2_2, card_1, hub_4. */
+const char *
+usbn_port_key(int slot, char *buf, int len)
+{
+    const int r = usbn_port_role(slot);
+
+    if (r == -2)
+        buf[0] = '\0';
+    else if (r == -1)
+        snprintf(buf, len, "hub_%d", slot - USBN_HUB_BASE + 1);
+    else
+        snprintf(buf, len, "%s_%d", role_keys[r], (slot % USBN_ROOT_PORTS) + 1);
+    return buf;
+}
+
+int
+usbn_port_from_key(const char *key)
+{
+    char buf[32];
+
+    for (int p = 0; p < USBN_PORTS; p++) {
+        if (!strcmp(usbn_port_key(p, buf, sizeof(buf)), key))
+            return p;
+    }
+    return -1;
+}
+
+/* The slot assigned what ("keyboard", "mouse", "hub"), or -1. */
+int
+usbn_assigned(const char *what)
+{
+    for (int p = 0; p < USBN_PORTS; p++) {
+        if (!strcmp(usbn_port_cfg[p], what))
+            return p;
+    }
+    return -1;
+}
+
+/* An older config (no layout = 2): its port1-port6 were the one controller's
+   two ports and the hub's four; the hub, keyboard and mouse went into the
+   first free ports, in that order.  Written down once, as assignments, at
+   the first hard reset with the controllers made. */
+void
+usbn_migrate(int hub_fitted, int keyboard, int mouse)
+{
+    int base = -1;
+
+    if (usbn_layout >= 2)
+        return;
+    for (int r = 0; (r < USBN_ROLES) && (base < 0); r++) {
+        if (roots[r].ops)
+            base = r * USBN_ROOT_PORTS;
+    }
+    if (base < 0)
+        return;
+    for (int i = 0; i < 6; i++) {
+        const int p = (i < 2) ? (base + i) : (USBN_HUB_BASE + i - 2);
+        if (usbn_legacy_cfg[i][0] && !usbn_port_cfg[p][0])
+            snprintf(usbn_port_cfg[p], sizeof(usbn_port_cfg[p]), "%s", usbn_legacy_cfg[i]);
+        usbn_legacy_cfg[i][0] = '\0';
+    }
+    const char *what[3] = { hub_fitted ? "hub" : NULL, keyboard ? "keyboard" : NULL, mouse ? "mouse" : NULL };
+    for (int w = 0; w < 3; w++) {
+        if (!what[w] || (usbn_assigned(what[w]) >= 0))
+            continue;
+        for (int p = 0; p < USBN_PORTS; p++) {
+            const int r = usbn_port_role(p);
+            /* Root ports of the controller that had them, then (not for the
+               hub itself) the hub's. */
+            const int ok = (r == -1) ? (hub_fitted && (w > 0)) : ((p >= base) && (p < base + 2));
+            if (ok && !usbn_port_cfg[p][0]) {
+                snprintf(usbn_port_cfg[p], sizeof(usbn_port_cfg[p]), "%s", what[w]);
+                break;
+            }
+        }
+    }
+    usbn_layout = 2;
+    usbn_trace("an older config's USB ports written down as assignments");
+}
+
+/* Called by each controller once per frame, on the emulation thread: its
+   own ports, and (from the first controller) the hub's. */
 void
 usbn_apply(void *priv)
 {
-    if ((root == NULL) || (priv != root_priv))
+    const int r = role_of(priv);
+    int       first = 1;
+
+    if (r < 0)
         return;
-    usbn_frame_count++;
+    for (int i = 0; i < r; i++)
+        first &= (roots[i].ops == NULL);
+    if (first)
+        usbn_frame_count++;
     bus_lock();
     for (int p = 0; p < USBN_PORTS; p++) {
+        const int pr = usbn_port_role(p);
+        if (!((pr == r) || ((pr == -1) && first)))
+            continue;
         if (unplug[p]) {
             unplug[p] = 0;
             if (devs[p]) {
                 usbn_device_t *d = devs[p];
-                if (p < USBN_ROOT_PORTS)
-                    root->disconnect(root_priv, p);
+                char           key[32];
+                if (pr >= 0)
+                    roots[r].ops->disconnect(roots[r].priv, p % USBN_ROOT_PORTS);
                 else if (hub)
-                    hub->disconnect(hub_priv, p - USBN_ROOT_PORTS);
+                    hub->disconnect(hub_priv, p - USBN_HUB_BASE);
                 devs[p] = NULL;
-                pclog("USB: %s unplugged from port %d\n", d->name, p + 1);
-                usbn_trace("port %d: %s unplugged", p + 1, d->name);
+                pclog("USB: %s unplugged from %s\n", d->name, usbn_port_key(p, key, sizeof(key)));
+                usbn_trace("%s: %s unplugged", key, d->name);
                 if (d->destroy)
                     d->destroy(d);
             }
         }
-        if (plug[p] && (devs[p] == NULL) && ((p < USBN_ROOT_PORTS) || hub)) {
+        if (plug[p] && (devs[p] == NULL) && ((pr >= 0) || hub)) {
+            char key[32];
             devs[p] = plug[p];
             plug[p] = NULL;
-            pclog("USB: %s plugged into port %d\n", devs[p]->name, p + 1);
-            usbn_trace("port %d: %s plugged in (%s speed%s)", p + 1, devs[p]->name,
+            pclog("USB: %s plugged into %s\n", devs[p]->name, usbn_port_key(p, key, sizeof(key)));
+            usbn_trace("%s: %s plugged in (%s speed%s)", key, devs[p]->name,
                        (devs[p]->speed == USBN_SPEED_HIGH) ? "high" : ((devs[p]->speed == USBN_SPEED_LOW) ? "low" : "full"),
-                       root_high_speed ? "" : ", on a USB 1.1 controller");
-            if (p < USBN_ROOT_PORTS)
-                root->connect(root_priv, p, devs[p]);
+                       usbn_port_high_speed(p) ? "" : ", on a USB 1.1 port");
+            if (pr >= 0)
+                roots[r].ops->connect(roots[r].priv, p % USBN_ROOT_PORTS, devs[p]);
             else
-                hub->connect(hub_priv, p - USBN_ROOT_PORTS, devs[p]);
+                hub->connect(hub_priv, p - USBN_HUB_BASE, devs[p]);
         }
         if (devs[p] && devs[p]->frame)
             devs[p]->frame(devs[p]);
@@ -312,7 +469,7 @@ usbn_port_busy(int port)
 {
     int busy;
 
-    if (!root || !usbn_port_exists(port))
+    if (!usbn_port_exists(port))
         return 1;
     bus_lock();
     busy = (devs[port] != NULL && !unplug[port]) || (plug[port] != NULL);
@@ -338,7 +495,7 @@ usbn_port_name(int port, char *buf, int len)
 int
 usbn_attach(int port, usbn_device_t *d)
 {
-    if (!root || !d || !usbn_port_exists(port) || usbn_port_busy(port))
+    if (!d || !usbn_port_exists(port) || usbn_port_busy(port))
         return 0;
     bus_lock();
     plug[port] = d;
@@ -346,6 +503,8 @@ usbn_attach(int port, usbn_device_t *d)
     return 1;
 }
 
+/* Pull a device out.  What the port is assigned (usbn_port_cfg) is kept:
+   the UI forgets it itself when the user disconnects a device. */
 void
 usbn_detach(int port)
 {
@@ -359,16 +518,15 @@ usbn_detach(int port)
     } else if (devs[port])
         unplug[port] = 1;
     bus_unlock();
-    usbn_port_cfg[port][0] = '\0';
 }
 
-/* Plug back in what the config says was plugged in. */
+/* Plug back in the host devices the config has on the ports. */
 void
 usbn_restore_ports(void)
 {
     for (int p = 0; p < USBN_PORTS; p++) {
         unsigned vid, pid;
-        char     err[512];
+        char     err[512], key[32];
 
         if (sscanf(usbn_port_cfg[p], "%x:%x", &vid, &pid) != 2)
             continue;
@@ -379,6 +537,6 @@ usbn_restore_ports(void)
         if (d)
             usbn_attach(p, d);
         else
-            pclog("USB: port %d: %04X:%04X not reattached: %s\n", p + 1, vid, pid, err);
+            pclog("USB: %s: %04X:%04X not reattached: %s\n", usbn_port_key(p, key, sizeof(key)), vid, pid, err);
     }
 }

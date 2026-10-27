@@ -2832,11 +2832,24 @@ load_other_peripherals(void)
     usb_card_type = usb_card_get_from_internal_name(p);
     p             = ini_section_get_string(cat, "usb_hub", "none");
     usbn_hub_type = usbn_hub_get_from_internal_name(p);
-    for (int u = 0; u < USBN_PORTS; u++) {
-        char key[16];
-        sprintf(key, "port%d", u + 1);
-        p = ini_section_get_string(ini_find_section(config, "USB"), key, "");
-        snprintf(usbn_port_cfg[u], sizeof(usbn_port_cfg[u]), "%s", p ? p : "");
+    /* What is on each USB port, by the port's name (layout 2); an older
+       config's port1-port6 are written down by usbn_migrate() at the hard
+       reset, once the controllers are known. */
+    {
+        ini_section_t usb = ini_find_section(config, "USB");
+
+        usbn_layout = ini_section_get_int(usb, "layout", 0);
+        for (int u = 0; u < USBN_PORTS; u++) {
+            char key[32];
+            p = (usbn_layout >= 2) ? ini_section_get_string(usb, (char *) usbn_port_key(u, key, sizeof(key)), "") : "";
+            snprintf(usbn_port_cfg[u], sizeof(usbn_port_cfg[u]), "%s", p ? p : "");
+        }
+        for (int u = 0; u < 6; u++) {
+            char key[16];
+            sprintf(key, "port%d", u + 1);
+            p = (usbn_layout >= 2) ? "" : ini_section_get_string(usb, key, "");
+            snprintf(usbn_legacy_cfg[u], sizeof(usbn_legacy_cfg[u]), "%s", p ? p : "");
+        }
     }
 
     /* 86Box-Next: the PC Card controller and the card in each socket. */
@@ -4415,13 +4428,25 @@ save_other_peripherals(void)
     {
         ini_section_t usb = ini_find_or_create_section(config, "USB");
         for (int u = 0; u < USBN_PORTS; u++) {
-            char key[16];
-            sprintf(key, "port%d", u + 1);
-            if (usbn_port_cfg[u][0])
+            char key[32];
+            usbn_port_key(u, key, sizeof(key));
+            if ((usbn_layout >= 2) && usbn_port_cfg[u][0])
                 ini_section_set_string(usb, key, usbn_port_cfg[u]);
             else
                 ini_section_delete_var(usb, key);
         }
+        for (int u = 0; u < 6; u++) {
+            char key[16];
+            sprintf(key, "port%d", u + 1);
+            if ((usbn_layout < 2) && usbn_legacy_cfg[u][0])
+                ini_section_set_string(usb, key, usbn_legacy_cfg[u]);
+            else
+                ini_section_delete_var(usb, key);
+        }
+        if (usbn_layout >= 2)
+            ini_section_set_int(usb, "layout", 2);
+        else
+            ini_section_delete_var(usb, "layout");
         ini_delete_section_if_empty(config, usb);
     }
     {

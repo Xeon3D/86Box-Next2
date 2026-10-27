@@ -43,6 +43,13 @@ public:
        SiS, SMSC, STPC) with USB connectors -- for Settings, before the
        machine is built. */
     static bool machineHasOnboardUsb(int machineId);
+    /* A bus slot's name: "Motherboard port 1", "USB card port 2", "Hub port 3"... */
+    static QString portLabel(int slot);
+    /* For Settings, before the machine is built: the ports a controller role
+       (USBN_ROLE_*) has on this machine with this card, and whether a slot
+       exists with this card and hub. */
+    static int  machinePorts(int machineId, int card, int role);
+    static bool portExistsFor(int machineId, int card, int hub, int slot);
 
     /* The USB menu, behind the USB icon in the status bar. */
     QMenu  *usbMenu() const { return menu; }

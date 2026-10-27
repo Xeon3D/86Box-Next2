@@ -3,6 +3,13 @@
 
 #include <QWidget>
 
+extern "C" {
+#include <86box/usb_next.h>
+}
+
+class QComboBox;
+class QLabel;
+
 #define SERIAL_MAX_UI 4
 
 namespace Ui {
@@ -20,6 +27,10 @@ public:
 
     void restore();
     void save(int soft);
+
+    /* 86Box-Next: Ports > USB, what is on each USB port. */
+    QString usbAssignment(int slot) const;
+    void    refreshUsb();
 
 public slots:
     void onCurrentMachineChanged(int machineId);
@@ -58,6 +69,14 @@ private:
     int                machineId = 0;
 
     void updateLptPortTracking(int i);
+    void buildUsbTab();
+    void usbChoiceChanged(int slot);
+
+    QComboBox *usbCombo[USBN_PORTS] {};
+    QLabel    *usbLabel[USBN_PORTS] {};
+    QLabel    *usbNone  = nullptr;
+    QString    usbCfg[USBN_PORTS];   /* the choices, kept for ports not shown now */
+    bool       usbFilling = false;
 
     int                lpt_device_cfg_changed[4] = { 0, 0, 0, 0 };
     int                com_device_cfg_changed[SERIAL_MAX_UI] = { 0 };

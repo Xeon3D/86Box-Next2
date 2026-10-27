@@ -1622,6 +1622,8 @@ ohci_core_set_ndp(ohci_t *dev, int ndp, int ports)
             dev_bus_reset(dev->port[i].dev);
     }
     dev->ndp       = ndp;
+    if (dev->root)
+        usbn_set_root_ports(dev, ports);   /* the board's connectors */
     mask           = ((1u << ndp) - 1) << 1;
     dev->rh_desc_a = (dev->rh_desc_a & ~0xffu) | ndp;
     dev->rh_desc_b &= mask | (mask << 16);

@@ -129,6 +129,7 @@ main(void)
     void *card = usb_ehci_via_device.init(&usb_ehci_via_device);
     fake_pci_wr(1, 0x13, 1, 0xfe, fake_pci_priv);
     fake_pci_wr(1, 0x04, 1, 0x06, fake_pci_priv);
+    snprintf(usbn_port_cfg[0], sizeof(usbn_port_cfg[0]), "hub");   /* Settings > Ports > USB */
     void *hub = usb_hub2_4port_device.init(&usb_hub2_4port_device);
     fake_frames(1);
     d = usbn_port_device(0);
@@ -156,7 +157,7 @@ main(void)
     CHECK(ctrl_out(0x00, 0x09, 1, 0) == 0, "SET_CONFIGURATION 1");
 
     /* A full-speed device on hub port 1, a high-speed one on hub port 2. */
-    CHECK(usbn_attach(2, &fs.dev) && usbn_attach(3, &hs.dev), "attach to hub ports 1 and 2");
+    CHECK(usbn_attach(USBN_HUB_BASE, &fs.dev) && usbn_attach(USBN_HUB_BASE + 1, &hs.dev), "attach to hub ports 1 and 2");
     fake_frames(1);
     for (int p = 1; p <= 2; p++) {
         ctrl_out(0x23, 0x03, 8, p);    /* PORT_POWER */

@@ -67,12 +67,21 @@ SettingsInput::SettingsInput(QWidget *parent)
              memcpy(&(org_joystick_state[i][j]), &(joystick_state[i][j]), sizeof(joystick_state_t));
     }
 
+    /* 86Box-Next: under the keyboard and mouse, in red, a USB one that is not
+       connected to a port yet (Settings > Ports > USB). */
+    labelUsbNote = new QLabel(this);
+    labelUsbNote->setWordWrap(true);
+    labelUsbNote->setStyleSheet("QLabel { color: #c00000; }");
+    labelUsbNote->hide();
+    ui->verticalLayout->insertWidget(1, labelUsbNote);
+
     keyboardType = keyboard_type;
     mouseType    = mouse_type;
     tabletType   = tablet_type;
     joystickType = joystick_type[0];
 
     onCurrentMachineChanged(machine);
+    refreshUsbNote();
 }
 
 SettingsInput::~SettingsInput()
@@ -169,6 +178,7 @@ void
 SettingsInput::onUsbCardChanged()
 {
     onCurrentMachineChanged(machineId);
+    refreshUsbNote();
 }
 
 void
@@ -321,6 +331,8 @@ SettingsInput::on_comboBoxKeyboard_currentIndexChanged(int index)
     int keyboardId = ui->comboBoxKeyboard->currentData().toInt();
     ui->pushButtonConfigureKeyboard->setEnabled(keyboard_has_config(keyboardId) > 0);
     keyboardType = keyboardId;
+    if (Settings::settings)
+        Settings::settings->usbStateChanged();
 }
 
 void
@@ -331,6 +343,35 @@ SettingsInput::on_comboBoxMouse_currentIndexChanged(int index)
     int mouseId = ui->comboBoxMouse->currentData().toInt();
     ui->pushButtonConfigureMouse->setEnabled(mouse_has_config(mouseId) > 0);
     mouseType = mouseId;
+    if (Settings::settings)
+        Settings::settings->usbStateChanged();
+}
+
+bool
+SettingsInput::usbKeyboard() const
+{
+    return keyboardType == KEYBOARD_TYPE_USB;
+}
+
+bool
+SettingsInput::usbMouse() const
+{
+    return mouse_get_device(mouseType) == &mouse_usb_device;
+}
+
+void
+SettingsInput::refreshUsbNote()
+{
+    QStringList lines;
+
+    if (Settings::settings == nullptr)
+        return;
+    if (usbKeyboard() && (Settings::settings->currentUsbAssigned("keyboard") < 0))
+        lines << tr("The USB keyboard is not connected to a USB port: it stays unplugged until you connect it in Ports > USB.");
+    if (usbMouse() && (Settings::settings->currentUsbAssigned("mouse") < 0))
+        lines << tr("The USB mouse is not connected to a USB port: it stays unplugged until you connect it in Ports > USB.");
+    labelUsbNote->setText(lines.join("\n"));
+    labelUsbNote->setVisible(!lines.isEmpty());
 }
 
 void

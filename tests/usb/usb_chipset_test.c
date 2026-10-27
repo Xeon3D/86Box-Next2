@@ -21,7 +21,7 @@
 const device_t usb_ehci_via_device   = { .name = "unused", .internal_name = "usb_ehci_via" };
 const device_t usb_ehci_intel_device = { .name = "unused", .internal_name = "usb_ehci_intel" };
 
-static fake_dev_t fake;
+static fake_dev_t fake, fake2;
 static int        irq_level[2];
 
 static void irq0(void *priv, int level) { (void) priv; irq_level[0] = level; }
@@ -33,19 +33,39 @@ main(void)
     usb_t *a, *b;
 
     fake_dev_init(&fake, "fake", USBN_SPEED_FULL);
+    fake_dev_init(&fake2, "fake2", USBN_SPEED_FULL);
     a = usb_device.init(&usb_device);
     b = usb_device.init(&usb_device);
     uhci_set_irq_handler(a, irq0, NULL);
     uhci_set_irq_handler(b, irq1, NULL);
     CHECK(a->uhci && b->uhci && !a->ohci, "each usb_t became a UHCI when used as one");
-    CHECK(usbn_root_owner() == a->uhci, "the first function has the ports");
+    CHECK(usbn_port_exists(0) && usbn_port_exists(1) && !usbn_port_exists(2), "the first function: the motherboard's two ports");
+    CHECK(usbn_port_exists(USBN_ROOT_PORTS) && usbn_port_exists(USBN_ROOT_PORTS + 1), "the second function: two of its own");
+    CHECK(!usbn_port_exists(2 * USBN_ROOT_PORTS), "no card ports without a card");
+
+    /* The ports' names in the config, and an older config written down. */
+    char key[32];
+    CHECK(!strcmp(usbn_port_key(0, key, sizeof(key)), "onboard_1"), "slot 0 is onboard_1 (%s)", key);
+    CHECK(!strcmp(usbn_port_key(USBN_ROOT_PORTS + 1, key, sizeof(key)), "onboard2_2"), "the second function's port 2 (%s)", key);
+    CHECK(!strcmp(usbn_port_key(USBN_HUB_BASE + 2, key, sizeof(key)), "hub_3"), "hub port 3 (%s)", key);
+    CHECK(usbn_port_from_key("card_2") == (USBN_ROLE_CARD * USBN_ROOT_PORTS + 1), "card_2 found by name");
+    usbn_layout = 0;
+    snprintf(usbn_legacy_cfg[0], sizeof(usbn_legacy_cfg[0]), "1234:5678");
+    usbn_migrate(1, 1, 1);
+    CHECK(!strcmp(usbn_port_cfg[0], "1234:5678") && !strcmp(usbn_port_cfg[1], "hub"), "old port1 kept, the hub next (%s, %s)", usbn_port_cfg[0], usbn_port_cfg[1]);
+    CHECK((usbn_assigned("keyboard") == USBN_HUB_BASE) && (usbn_assigned("mouse") == USBN_HUB_BASE + 1), "keyboard and mouse on the hub's first ports");
+    CHECK((usbn_layout == 2) && !usbn_legacy_cfg[0][0], "written down once");
+    usbn_migrate(0, 0, 0);
+    CHECK(!strcmp(usbn_port_cfg[1], "hub"), "a second migration changes nothing");
+    for (int p = 0; p < USBN_PORTS; p++)
+        usbn_port_cfg[p][0] = '\0';
 
     uhci_update_io_mapping(a, 0x00, 0xd0, 1);
     uhci_set_bus_master(a, 1);
     CHECK(fake_io_base == 0xd000, "I/O mapped where the southbridge says (%04X)", fake_io_base);
     CHECK(fake_io_rw(0x02) & 0x20, "halted after reset");
 
-    CHECK(usbn_attach(0, &fake.dev), "attach accepted");
+    CHECK(usbn_attach(0, &fake.dev), "attach to the first function's port 1");
     fake_frames(1);
     CHECK(fake_io_rw(0x10) & 1, "the device is on the first function's port");
 
@@ -59,21 +79,21 @@ main(void)
     CHECK(!irq_level[0], "and it drops with the status");
     fake_io_ww(0x00, 0x0000);
 
-    /* The BIOS turns the first function off: the ports move, device and all. */
+    /* The BIOS turns the first function off: its port keeps the device,
+       out of the guest's reach, as on the board. */
     uhci_set_present(a, 0);
-    CHECK(usbn_root_owner() == b->uhci, "the ports moved to the second function");
+    CHECK(usbn_port_device(0) == &fake.dev, "the device stays on its port");
+    CHECK(fake.destroyed == 0, "nothing was unplugged");
+    CHECK(usbn_attach(USBN_ROOT_PORTS, &fake2.dev), "the second function's port takes another");
+    fake_frames(1);
     uhci_update_io_mapping(b, 0x20, 0xd0, 1);
-    CHECK(fake_io_base == 0xd020, "second function mapped (%04X)", fake_io_base);
-    CHECK((fake_io_rw(0x10) & 0x0003) == 0x0003, "the device shows up there, connect change set (%04X)", fake_io_rw(0x10));
-    CHECK(fake.destroyed == 0, "nothing was unplugged on the way");
-
-    /* On again: the second keeps them while it is on. */
-    uhci_set_present(a, 1);
-    CHECK(usbn_root_owner() == b->uhci, "a function turned back on does not take them back");
+    CHECK((fake_io_rw(0x10) & 0x0003) == 0x0003, "and shows it there (%04X)", fake_io_rw(0x10));
 
     usb_device.close(a);
+    CHECK(fake.destroyed == 1, "closing the first function releases its port's device");
+    CHECK(fake2.destroyed == 0, "but not the second's");
     usb_device.close(b);
-    CHECK(usbn_root_owner() == NULL, "both gone: no controller has the ports");
+    CHECK(!usbn_present(), "both gone: no controller");
 
     printf("USB chipset glue: %d checks, %d failed\n", fake_checks, fake_failures);
     return fake_failures ? 1 : 0;

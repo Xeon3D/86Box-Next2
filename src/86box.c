@@ -75,7 +75,6 @@
 #include <86box/io_board.h>
 #include <86box/modem_card.h>
 #include <86box/usb_next.h>
-#include <86box/usb.h>   /* upstream's hub, usb_hub_reset() */
 #include <86box/pcmcia.h>
 #include <86box/lpt.h>
 #include <86box/serial.h>
@@ -2043,7 +2042,7 @@ pc_reset_hard_init(void)
        first free ports, root ports first. */
     usb_card_reset();
     if (usbn_present())
-        usb_hub_reset();
+        usbn_hub_reset();
     usbn_hid_attach();
 
     /* 86Box-Next: the PC Card controller and its cards, if fitted. */

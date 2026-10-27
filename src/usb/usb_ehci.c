@@ -22,13 +22,22 @@
  *
  *             The schedules -- the periodic frame list and the asynchronous
  *             queue-head ring -- are walked once per emulated millisecond.
- *             Queue heads and qTDs, and high-speed isochronous iTDs, are
- *             supported; split-transaction siTDs are skipped (full-speed
- *             devices go to the companion).  A qTD is handed to the device
- *             whole (up to 20 KB) and a device that is not ready NAKs,
+ *             Queue heads and qTDs, high-speed isochronous iTDs and
+ *             split-transaction siTDs are supported.  A qTD is handed to the
+ *             device whole (up to 20 KB) and a device that is not ready NAKs,
  *             leaving it active for the next frame.  An iTD's eight
  *             microframe transactions all run in its frame, one isochronous
  *             transaction each (the device's iso entry), never retried.
+ *
+ *             Split transactions (a full- or low-speed device behind a USB
+ *             2.0 hub's transaction translator, usb_hub2.c): a queue head
+ *             whose EPS is full or low speed is run like any other -- the
+ *             device is found through the hub's routing (usbn_route()) and the
+ *             transaction is done at once, so the start-split and its
+ *             complete-split are one step and SplitXState never shows a split
+ *             in progress.  An siTD (full-speed isochronous) is one
+ *             transaction in its frame, its status and remaining length
+ *             written back as the complete-split would.
  *
  *             Reference: Intel, "Enhanced Host Controller Interface
  *             Specification for Universal Serial Bus", revision 1.0, 2002.
@@ -252,13 +261,14 @@ ehci_root_disconnect(void *priv, int port)
 
 static const usbn_root_ops_t ehci_root_ops = { ehci_root_connect, ehci_root_disconnect };
 
+/* The device at addr: on an EHCI port, or behind the hub on one. */
 static usbn_device_t *
-ehci_find_device(ehci_t *dev, uint8_t addr)
+ehci_find_device(ehci_t *dev, uint8_t addr, int low_speed)
 {
     for (int p = 0; p < USBN_ROOT_PORTS; p++) {
         usbn_device_t *d = dev->dev[p];
         if (d && !port_companion_owned(dev, p) && (dev->portsc[p] & PORT_PED) && !(dev->portsc[p] & (PORT_PR | PORT_SUSP))
-            && (d->addr == addr))
+            && ((d = usbn_route(d, addr, low_speed)) != NULL))
             return d;
     }
     return NULL;
@@ -329,7 +339,9 @@ ehci_exec(ehci_t *dev, uint32_t qh)
     if (total > XFER_MAX)
         total = XFER_MAX;
 
-    d = ehci_find_device(dev, addr);
+    /* EPS (bits 13:12): 0 full, 1 low, 2 high speed.  Full and low speed are
+       split transactions through a hub's TT, done here in one step. */
+    d = ehci_find_device(dev, addr, ((epc >> 12) & 3) == 1);
     if (d == NULL) {
         usbn_trace("EHCI: no device at address %d (ep %d): transaction error", addr, ep);
         token = (token & ~TOK_ACTIVE) | TOK_HALTED | TOK_XACTERR;
@@ -477,7 +489,7 @@ ehci_process_itd(ehci_t *dev, uint32_t itd)
     const int      in   = !!(bp[1] & 0x800);
     const int      maxp = bp[1] & 0x7ff;
     const int      mult = (bp[2] & 3) ? (bp[2] & 3) : 1;
-    usbn_device_t *d    = ehci_find_device(dev, addr);
+    usbn_device_t *d    = ehci_find_device(dev, addr, 0);
 
     for (int uf = 0; uf < 8; uf++) {
         uint32_t st = rd32(itd + 4 + uf * 4);
@@ -519,6 +531,83 @@ ehci_process_itd(ehci_t *dev, uint32_t itd)
     }
 }
 
+/* A split-transaction isochronous TD (EHCI 1.0 3.4): one full-speed
+   isochronous transaction through a hub's TT, in this frame.  Its data
+   starts at page 0 + Current Offset and may run on into page 1. */
+#define SITD_ACTIVE    0x00000080
+#define SITD_ERR       0x00000040
+#define SITD_DBERR     0x00000020
+#define SITD_BABBLE    0x00000010
+#define SITD_XACTERR   0x00000008
+#define SITD_SPLITX    0x00000002
+#define SITD_IOC       0x80000000
+
+static void
+sitd_copy(uint32_t bp0, uint32_t bp1, uint8_t *buf, int len, int to_guest)
+{
+    uint32_t off   = bp0 & 0xfff;
+    int      first = ((int) (0x1000 - off) < len) ? (int) (0x1000 - off) : len;
+
+    if (to_guest) {
+        dma_bm_write((bp0 & ~0xfff) + off, buf, first, 1);
+        if (len > first)
+            dma_bm_write(bp1 & ~0xfff, buf + first, len - first, 1);
+    } else {
+        dma_bm_read((bp0 & ~0xfff) + off, buf, first, 1);
+        if (len > first)
+            dma_bm_read(bp1 & ~0xfff, buf + first, len - first, 1);
+    }
+}
+
+static void
+ehci_process_sitd(ehci_t *dev, uint32_t sitd)
+{
+    const uint32_t cap   = rd32(sitd + 4);
+    uint32_t       st    = rd32(sitd + 0x0c);
+    const uint32_t bp0   = rd32(sitd + 0x10);
+    const uint32_t bp1   = rd32(sitd + 0x14);
+    const int      in    = !!(cap & 0x80000000);
+    const uint8_t  addr  = cap & 0x7f;
+    const uint8_t  ep    = (cap >> 8) & 0x0f;
+    int            total = (st >> 16) & 0x3ff;
+    int            n     = 0;
+    usbn_device_t *d;
+
+    if (!(st & SITD_ACTIVE))
+        return;
+    if (total > 1023)
+        total = 1023;
+    d = ehci_find_device(dev, addr, 0);
+    st &= ~(SITD_ACTIVE | SITD_SPLITX);
+    if (d == NULL)
+        st |= SITD_XACTERR;
+    else if (d->iso) {
+        if (in) {
+            n = d->iso(d, USB_PID_IN, ep, dev->buf, total);
+            if (n > total) {
+                n = total;
+                st |= SITD_BABBLE;
+            }
+            if (n > 0)
+                sitd_copy(bp0, bp1, dev->buf, n, 1);
+            if (n < 0)
+                n = 0;
+        } else {
+            sitd_copy(bp0, bp1, dev->buf, total, 0);
+            d->iso(d, USB_PID_OUT, ep, dev->buf, total);
+            n = total;
+        }
+    } else if (!in)
+        n = total;   /* a device that does not stream takes nothing, as the UHCI has it */
+    /* Total Bytes to Transfer counts down to what was not moved. */
+    st = (st & ~0x03ff0000) | ((uint32_t) (total - n) << 16);
+    wr32(sitd + 0x0c, st);
+    if (st & SITD_IOC)
+        dev->pending_sts |= STS_USBINT;
+    if (st & (SITD_XACTERR | SITD_BABBLE | SITD_DBERR))
+        dev->pending_sts |= STS_ERRINT;
+}
+
 static void
 ehci_periodic(ehci_t *dev)
 {
@@ -531,8 +620,10 @@ ehci_periodic(ehci_t *dev)
             ehci_process_qh(dev, a);
         else if (LINK_TYPE(link) == TYPE_ITD)
             ehci_process_itd(dev, a);
-        /* siTDs and FSTNs are passed over: their first dword is the next
-           link all the same. */
+        else if (LINK_TYPE(link) == TYPE_SITD)
+            ehci_process_sitd(dev, a);
+        /* FSTNs (save-place nodes for split interrupts spanning frames) are
+           passed over: splits complete at once, so nothing spans a frame. */
         link = rd32(a);
     }
 }

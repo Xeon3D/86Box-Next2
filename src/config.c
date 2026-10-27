@@ -59,8 +59,6 @@
 #include <86box/io_board.h>
 #include <86box/modem_card.h>
 #include <86box/usb_next.h>
-#include <86box/mem.h>
-#include <86box/usb.h>
 #include <86box/pcmcia.h>
 #include <86box/lpt.h>
 #include <86box/serial.h>
@@ -2833,7 +2831,7 @@ load_other_peripherals(void)
     p             = ini_section_get_string(cat, "usb_card", "none");
     usb_card_type = usb_card_get_from_internal_name(p);
     p             = ini_section_get_string(cat, "usb_hub", "none");
-    usb_hub_type  = usb_hub_get_from_internal_name(p);
+    usbn_hub_type = usbn_hub_get_from_internal_name(p);
     for (int u = 0; u < USBN_PORTS; u++) {
         char key[16];
         sprintf(key, "port%d", u + 1);
@@ -4410,10 +4408,10 @@ save_other_peripherals(void)
         ini_section_delete_var(cat, "usb_card");
     else
         ini_section_set_string(cat, "usb_card", (char *) usb_card_get_internal_name(usb_card_type));
-    if (usb_hub_type == 0)
+    if (usbn_hub_type == 0)
         ini_section_delete_var(cat, "usb_hub");
     else
-        ini_section_set_string(cat, "usb_hub", (char *) usb_hub_get_internal_name(usb_hub_type));
+        ini_section_set_string(cat, "usb_hub", (char *) usbn_hub_get_internal_name(usbn_hub_type));
     {
         ini_section_t usb = ini_find_or_create_section(config, "USB");
         for (int u = 0; u < USBN_PORTS; u++) {

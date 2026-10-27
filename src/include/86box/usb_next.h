@@ -220,6 +220,20 @@ extern int            usbn_hid_keyboard_active(void);
 extern int            usbn_hid_mouse_active(void);
 extern void           usbn_hid_key(int down, uint16_t scan);   /* any thread; 86Box's key number */
 
+/* ---- upstream's USB devices on our bus (usb_devbridge.c) and the hubs (usb_hub2.c) ---- */
+struct usb_dev_t;
+extern void usbn_bridge_set_high_speed(struct usb_dev_t *udev);               /* a high-speed device */
+extern int  usbn_bridge_running_high_speed(const struct usb_dev_t *udev);     /* ... and on a high-speed port now */
+extern int  usbn_bridge_child_high_speed(const struct usb_dev_t *shim);       /* behind a hub: a high-speed device */
+extern void usbn_bridge_hub_speed(struct usb_dev_t *hub, int high_speed);    /* what the hub's children see */
+
+extern int         usbn_hub_type;   /* (C) Settings > Other peripherals: 0 none */
+extern int         usbn_hub_count(void);
+extern const char *usbn_hub_get_name(int hub);
+extern const char *usbn_hub_get_internal_name(int hub);
+extern int         usbn_hub_get_from_internal_name(const char *s);
+extern void        usbn_hub_reset(void);
+
 /* Remembered attachments ("vvvv:pppp" per port), for the config file. */
 extern char usbn_port_cfg[USBN_PORTS][16];
 extern void usbn_restore_ports(void);

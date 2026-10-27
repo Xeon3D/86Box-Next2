@@ -174,6 +174,51 @@ bridge_destroy(usbn_device_t *d)
     free(b);
 }
 
+/* -------------------------------------------------------- speeds --- */
+
+static const usb_dev_ops_t shim_ops;   /* the hub ports' stand-ins, below */
+
+void
+usbn_bridge_set_high_speed(usb_dev_t *udev)
+{
+    bridge_t *b = bridge_of(udev);
+
+    if (b)
+        b->dev.speed = USBN_SPEED_HIGH;
+}
+
+/* A high-speed device that a root port took at high speed (an EHCI's, or
+   a USB 2.0 hub's upstream). */
+int
+usbn_bridge_running_high_speed(const usb_dev_t *udev)
+{
+    const bridge_t *b = bridge_of(udev);
+
+    return b && (b->dev.speed == USBN_SPEED_HIGH) && !b->dev.fs_view;
+}
+
+/* A high-speed device behind a hub, seen at high speed when the hub runs at
+   high speed (a USB 2.0 hub on an EHCI port), else at full speed: set again
+   at each of the hub's resets, as its speed follows the port it is on. */
+int
+usbn_bridge_child_high_speed(const usb_dev_t *shim)
+{
+    const shim_t *s = (const shim_t *) shim->priv;
+
+    return (shim->ops == &shim_ops) && s->d && (s->d->speed == USBN_SPEED_HIGH) && !s->d->fs_view;
+}
+
+void
+usbn_bridge_hub_speed(usb_dev_t *hub_udev, int high_speed)
+{
+    const bridge_t *b = bridge_of(hub_udev);
+
+    for (int i = 0; b && (i < USBN_HUB_PORTS); i++) {
+        if (b->shim[i].d)
+            b->shim[i].d->fs_view = (b->shim[i].d->speed == USBN_SPEED_HIGH) && !high_speed;
+    }
+}
+
 /* --------------------------------------- the hub's downstream ports --- */
 
 static void
@@ -198,7 +243,9 @@ hub_connect(void *priv, int hp, usbn_device_t *d)
 
     if ((b->udev == NULL) || (b->udev->ops->attach == NULL))
         return;
-    d->fs_view = (d->speed == USBN_SPEED_HIGH);   /* a USB 1.1 hub */
+    /* Behind a USB 1.1 hub, or a USB 2.0 one running at full speed, a
+       high-speed device is shown at full speed. */
+    d->fs_view = (d->speed == USBN_SPEED_HIGH) && !usbn_bridge_running_high_speed(b->udev);
     memset(s, 0, sizeof(*s));
     s->d              = d;
     s->udev.name      = d->name;

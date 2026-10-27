@@ -154,7 +154,14 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   "Hub" (`usb_hub` in `[Other peripherals]`, hard reset, needs the board's or a card's controller); at
   the hard reset the hub takes the first free root port, then the keyboard and mouse the first free
   slots (the keyboard root port 2, the mouse hub port 1). The FIC VA-503+'s Award BIOS enumerates the
-  hub and the mouse behind it. Tests: Usb.hub. `usb.h` and
+  hub and the mouse behind it. Tests: Usb.hub. A USB 2.0 hub too (`src/usb/usb_hub2.c`, derived from
+  upstream's hub; "4-port USB 2.0 hub", internal name `usb_hub2_4port`; the hub list is ours,
+  `usbn_hub_*`, config `usb_hub`): high speed with one TT on an EHCI port, full speed (bDeviceProtocol 0,
+  bInterval FFh) on a USB 1.1 port, decided at each of its resets (`usbn_bridge_running_high_speed()`,
+  which also sets its children's `fs_view`); PORT_HIGH_SPEED for a high-speed child, the TT requests
+  accepted. The EHCI does split transactions in one step: a queue head with EPS full/low speed reaches
+  the device through the hub's route, and siTDs (full-speed isochronous) run one transaction a frame.
+  Tests: Usb.hub2. Not yet tried in a guest: every PIIX3 board's onboard UHCI takes the ports first. `usb.h` and
   `usb_legacy.c` are KEEP_OURS (usb_chipset.c implements that API: a southbridge change upstream that
   needs a new usb.h call fails to build here until ported). Upstream's other USB edits (keyboard.c,
   mouse.c, config.c, 86box.c, the Qt pages, src/CMakeLists.txt) still conflict once and are merged by hand.

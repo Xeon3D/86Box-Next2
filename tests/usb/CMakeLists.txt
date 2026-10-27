@@ -93,6 +93,25 @@ if(BUILD_TESTING)
     )
     add_test(NAME Usb.hub COMMAND usb_hub_tests)
 
+    # The USB 2.0 hub and the EHCI's split transactions.
+    add_executable(usb_hub2_tests
+        usb_hub2_test.c
+        usb_test_fakes.c
+        ../../src/usb/usb_uhci.c
+        ../../src/usb/usb_ehci.c
+        ../../src/usb/usb_bus.c
+        ../../src/usb/usb_devbridge.c
+        ../../src/usb/usb_hub2.c
+        ../../src/usb_dev.c
+        ../../src/usb_hub.c
+        ${USB_OHCI_SOURCES}
+    )
+    target_include_directories(usb_hub2_tests PRIVATE
+        ${PROJECT_SOURCE_DIR}/src/include
+        ${PROJECT_BINARY_DIR}/src/include
+    )
+    add_test(NAME Usb.hub2 COMMAND usb_hub2_tests)
+
     # The emulated keyboard and mouse, driven packet by packet.
     add_executable(usb_hid_tests
         usb_hid_test.c

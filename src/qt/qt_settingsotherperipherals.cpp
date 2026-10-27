@@ -40,8 +40,6 @@ extern "C" {
 #include <86box/io_board.h>
 #include <86box/modem_card.h>
 #include <86box/usb_next.h>
-#include <86box/mem.h>
-#include <86box/usb.h>   /* upstream's hub list */
 #include <86box/unittester.h>
 #include <86box/guest_tools.h>
 #include <86box/softpower.h>
@@ -420,11 +418,11 @@ SettingsOtherPeripherals::onCurrentMachineChanged(int machineId)
     ui->comboBoxUSB->setCurrentIndex(machine_has_bus(machineId, MACHINE_BUS_PCI) ? usb_card_type : 0);
     ui->comboBoxUSB->setEnabled(machine_has_bus(machineId, MACHINE_BUS_PCI) > 0);
 
-    // A hub on the USB controller's first free port: upstream's 4-port hub.
+    // A hub on the USB controller's first free port: USB 1.1 (upstream's) or 2.0.
     ui->comboBoxUSBHub->clear();
-    for (int i = 0; i < usb_hub_get_ndev(); i++)
-        ui->comboBoxUSBHub->addItem((i == 0) ? tr("None") : QString(usb_hub_get_device(i)->name), i);
-    ui->comboBoxUSBHub->setCurrentIndex(usb_hub_type);
+    for (int i = 0; i < usbn_hub_count(); i++)
+        ui->comboBoxUSBHub->addItem((i == 0) ? tr("None") : QString(usbn_hub_get_name(i)), i);
+    ui->comboBoxUSBHub->setCurrentIndex(usbn_hub_type);
     updateUSBHint();
 
     // Memory Expansion Cards (shared UI: ISA or MCA boards depending on
@@ -524,7 +522,7 @@ SettingsOtherPeripherals::changed()
     has_changed |= (modem_card_type        != ui->comboBoxModemCard->currentData().toInt());
     has_changed |= modem_card_cfg_changed;
     has_changed |= (usb_card_type          != ui->comboBoxUSB->currentData().toInt());
-    has_changed |= (usb_hub_type           != usbHub());
+    has_changed |= (usbn_hub_type          != usbHub());
     has_changed |= (bugger_enabled         != (ui->checkBoxISABugger->isChecked() ? 1 : 0));
     has_changed |= (postcard_enabled       != (ui->checkBoxPOSTCard->isChecked() ? 1 : 0));
     has_changed |= (unittester_enabled     != (ui->checkBoxUnitTester->isChecked() ? 1 : 0));
@@ -581,7 +579,7 @@ SettingsOtherPeripherals::save(int soft)
     io_board_type          = hasIsaOrSidecarBus(machineId) ? ui->comboBoxIOBoard->currentData().toInt() : IO_BOARD_NONE;
     modem_card_type        = hasIsaOrSidecarBus(machineId) ? ui->comboBoxModemCard->currentData().toInt() : MODEM_CARD_NONE;
     usb_card_type          = machine_has_bus(machineId, MACHINE_BUS_PCI) ? ui->comboBoxUSB->currentData().toInt() : 0;
-    usb_hub_type           = usbHub();
+    usbn_hub_type          = usbHub();
     bugger_enabled         = ui->checkBoxISABugger->isChecked() ? 1 : 0;
     postcard_enabled       = ui->checkBoxPOSTCard->isChecked() ? 1 : 0;
     unittester_enabled     = ui->checkBoxUnitTester->isChecked() ? 1 : 0;
@@ -664,7 +662,7 @@ SettingsOtherPeripherals::updateUSBHint()
     const bool hubOk = UsbManager::machineHasOnboardUsb(machineId) || (usbCard() > 0);
     ui->comboBoxUSBHub->setEnabled(hubOk);
     ui->labelUSBHub->setEnabled(hubOk);
-    const QString hubTip = hubOk ? tr("A 4-port USB 1.1 hub on the first free USB port: up to four more devices (the USB keyboard takes the other root port, the mouse and host devices the hub's ports). Windows 98 and later and Linux drive it; most BIOSes' USB keyboard support does not see devices behind a hub.")
+    const QString hubTip = hubOk ? tr("A 4-port hub on the first free USB port: up to four more devices (the USB keyboard takes the other root port, the mouse and host devices the hub's ports). The USB 2.0 hub runs at high speed on a USB 2.0 card's port, with full- and low-speed devices behind it reached through its transaction translator; on a USB 1.1 port it is a full-speed hub. Windows 98 and later and Linux drive both; most BIOSes' USB keyboard support does not see devices behind a hub.")
                                  : tr("A hub needs a USB controller: the motherboard's own or a USB card.");
     ui->comboBoxUSBHub->setToolTip(hubTip);
     ui->labelUSBHub->setToolTip(hubTip);

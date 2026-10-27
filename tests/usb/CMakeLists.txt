@@ -76,6 +76,23 @@ if(BUILD_TESTING)
     )
     add_test(NAME Usb.chipset COMMAND usb_chipset_tests)
 
+    # Upstream's hub on our bus, through the bridge.
+    add_executable(usb_hub_tests
+        usb_hub_test.c
+        usb_test_fakes.c
+        ../../src/usb/usb_uhci.c
+        ../../src/usb/usb_bus.c
+        ../../src/usb/usb_devbridge.c
+        ../../src/usb_dev.c
+        ../../src/usb_hub.c
+        ${USB_OHCI_SOURCES}
+    )
+    target_include_directories(usb_hub_tests PRIVATE
+        ${PROJECT_SOURCE_DIR}/src/include
+        ${PROJECT_BINARY_DIR}/src/include
+    )
+    add_test(NAME Usb.hub COMMAND usb_hub_tests)
+
     # The emulated keyboard and mouse, driven packet by packet.
     add_executable(usb_hid_tests
         usb_hid_test.c

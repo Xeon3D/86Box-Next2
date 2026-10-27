@@ -46,10 +46,14 @@ add_executable(86Box
     pci.c
     eisa.c
     mca.c
-    # 86Box-Next: upstream's USB stack (usb.c, usb_dev.c, usb_hid.c ...) is
-    # removed (sync-upstream.yml keeps it so): usb_device and the rest of usb.h
-    # are src/usb/usb_chipset.c over our controllers.
+    # 86Box-Next: of upstream's USB stack only the device core and the hub
+    # (usb_dev.c, usb_hub.c, on our bus through src/usb/usb_devbridge.c); its
+    # controllers and other devices (usb.c, usb_hid.c ...) are removed, and
+    # sync-upstream.yml keeps them so.  usb_device and the rest of usb.h are
+    # src/usb/usb_chipset.c over our controllers.
     usb_legacy.c
+    usb_dev.c
+    usb_hub.c
     device.c
     nvr.c
     nvr_at.c

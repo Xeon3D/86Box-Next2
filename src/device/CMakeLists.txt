@@ -60,6 +60,7 @@ add_library(dev OBJECT
     ../usb/usb_ohci.c
     ../usb/usb_chipset.c
     ../usb/usb_opti861.c
+    ../usb/usb_devbridge.c
     ../usb/usb_speed.c
     ../usb/usb_host.c
     ../usb/usb_hid.c

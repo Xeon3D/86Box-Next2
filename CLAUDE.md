@@ -143,8 +143,18 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   implements usb.h (`usb_device`, `uhci_update_io_mapping()`, `ohci_update_mem_mapping()`, the IRQ/SMI/
   bus-master/present/chip-flag/NDP calls); a `usb_t` becomes our UHCI (`uhci_chipset_create()`: the
   southbridge owns its PCI space and routes its interrupt) or our OHCI the first time it is used as one.
-  Upstream's own USB stack (`src/usb.c`, `usb_dev.c/.h`, `usb_hid.c`, `usb_hub.c`, `usb_msd.c`,
-  `usb_audio.c`, `usb_card*.c`) is removed and sync-upstream.yml keeps it so (KEEP_DELETED); `usb.h` and
+  Upstream's own USB stack (`src/usb.c`, `usb_hid.c`, `usb_msd.c`, `usb_audio.c`, `usb_card*.c`) is
+  removed and sync-upstream.yml keeps it so (KEEP_DELETED) -- but for its device core `usb_dev.c/.h` and
+  4-port hub `usb_hub.c`, taken as they are: `src/usb/usb_devbridge.c` puts a `usb_dev_t` device on our
+  bus (each transaction to `usb_dev_packet()` with the toggle it expects; `usb_dev_add/remove`,
+  `usb_dev_suspended`, `usb_resume_upstream` are there), and makes the hub's four ports bus slots 3-6
+  (`USBN_ROOT_PORTS` 2 + `USBN_HUB_PORTS` 4 = `USBN_PORTS`; `usbn_set_hub()`, `usbn_port_exists()`): what
+  is plugged there reaches the hub as a stand-in `usb_dev_t`, and the controllers find it through
+  `usbn_route()` (a device's `route` hook). Settings > Other peripherals, beside the USB controller:
+  "Hub" (`usb_hub` in `[Other peripherals]`, hard reset, needs the board's or a card's controller); at
+  the hard reset the hub takes the first free root port, then the keyboard and mouse the first free
+  slots (the keyboard root port 2, the mouse hub port 1). The FIC VA-503+'s Award BIOS enumerates the
+  hub and the mouse behind it. Tests: Usb.hub. `usb.h` and
   `usb_legacy.c` are KEEP_OURS (usb_chipset.c implements that API: a southbridge change upstream that
   needs a new usb.h call fails to build here until ported). Upstream's other USB edits (keyboard.c,
   mouse.c, config.c, 86box.c, the Qt pages, src/CMakeLists.txt) still conflict once and are merged by hand.

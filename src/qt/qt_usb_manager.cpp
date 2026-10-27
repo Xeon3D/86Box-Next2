@@ -103,8 +103,11 @@ UsbManager::toolTip() const
     QString tip = tr("USB");
     for (int p = 0; p < USBN_PORTS; p++) {
         char name[128];
+        if (!usbn_port_exists(p))
+            continue;   /* a hub's ports, without the hub */
         usbn_port_name(p, name, sizeof(name));
-        tip += "\n" + tr("Port %1: %2").arg(p + 1).arg(name[0] ? QString::fromUtf8(name) : tr("empty"));
+        const QString port = (p < USBN_ROOT_PORTS) ? tr("Port %1").arg(p + 1) : tr("Hub port %1").arg(p - USBN_ROOT_PORTS + 1);
+        tip += "\n" + tr("%1: %2").arg(port, name[0] ? QString::fromUtf8(name) : tr("empty"));
     }
     return tip;
 }
@@ -233,7 +236,7 @@ UsbManager::connectToVm(const usbn_host_info_t &d, bool quiet)
     }
     if (port < 0) {
         if (!quiet)
-            QMessageBox::warning(parentWidget, tr("USB"), tr("Both USB ports of the virtual machine are in use. Disconnect a device from the USB menu first."));
+            QMessageBox::warning(parentWidget, tr("USB"), tr("All USB ports of the virtual machine are in use. Disconnect a device from the USB menu first, or add a USB hub in Settings > Other peripherals."));
         return false;
     }
 

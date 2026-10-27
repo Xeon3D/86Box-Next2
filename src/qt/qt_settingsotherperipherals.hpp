@@ -28,6 +28,7 @@ public:
     int  changed();
     int  pcmciaCard(int s) const;   /* the PC Card chosen for socket s now */
     int  usbCard() const;           /* the USB controller chosen now */
+    int  usbHub() const;            /* the USB hub chosen now (0 without a controller) */
 
     void restore();
     void save(int soft);

@@ -179,9 +179,9 @@ typedef struct uhci_t {
     uint16_t cmd, sts, intr, frnum;
     uint32_t flbase;
     uint8_t  sofmod;
-    uint16_t portsc[USBN_PORTS];
+    uint16_t portsc[USBN_ROOT_PORTS];
 
-    usbn_device_t *dev[USBN_PORTS];   /* what this controller sees on each port */
+    usbn_device_t *dev[USBN_ROOT_PORTS];   /* what this controller sees on each port */
 
     pc_timer_t frame_timer;
     uint8_t    pending_sts;   /* status bits raised during this frame */
@@ -434,11 +434,12 @@ uhci_port_disconnect(uhci_t *dev, int p)
 }
 
 static usbn_device_t *
-uhci_find_device(uhci_t *dev, uint8_t addr)
+uhci_find_device(uhci_t *dev, uint8_t addr, int ls)
 {
-    for (int p = 0; p < USBN_PORTS; p++) {
+    for (int p = 0; p < USBN_ROOT_PORTS; p++) {
         usbn_device_t *d = dev->dev[p];
-        if (d && (dev->portsc[p] & PORT_PED) && !(dev->portsc[p] & (PORT_PR | PORT_SUSP)) && (d->addr == addr)) {
+        if (d && (dev->portsc[p] & PORT_PED) && !(dev->portsc[p] & (PORT_PR | PORT_SUSP)) &&
+            ((d = usbn_route(d, addr, ls)) != NULL)) {   /* the device, or one behind its hub */
             dev->cur_port = p;
             return d;
         }
@@ -535,7 +536,7 @@ uhci_process_td(uhci_t *dev, uint32_t td)
        (no iso entry) completes it empty, so a driver polling it does not
        hang. */
     if (ctrl & TD_ISO) {
-        usbn_device_t *idev = uhci_find_device(dev, addr);
+        usbn_device_t *idev = uhci_find_device(dev, addr, 0);
         int            n    = 0;
 
         if (idev && idev->iso) {
@@ -563,7 +564,7 @@ uhci_process_td(uhci_t *dev, uint32_t td)
         return TD_DONE;
     }
 
-    d = uhci_find_device(dev, addr);
+    d = uhci_find_device(dev, addr, !!(ctrl & TD_LS));
     if (d == NULL) {
         dev->ns_left -= usbn_bus_ns(!!(ctrl & TD_LS), 0, pid == USB_PID_IN, 0);
         dev->executed = 1;
@@ -768,7 +769,7 @@ uhci_reset_regs(uhci_t *dev)
     dev->flbase = 0;
     dev->sofmod = 0x40;
     dev->dbg_resume = 0;
-    for (int p = 0; p < USBN_PORTS; p++) {
+    for (int p = 0; p < USBN_ROOT_PORTS; p++) {
         dev->portsc[p] &= PORT_CCS | PORT_LSDA | PORT_LS_J | PORT_LS_K;
         if (dev->portsc[p] & PORT_CCS)
             dev->portsc[p] |= PORT_CSC;
@@ -1090,7 +1091,7 @@ uhci_root_resume(void *priv, int port)
 {
     uhci_t *dev = (uhci_t *) priv;
 
-    if ((port >= USBN_PORTS) || !dev->dev[port] || !(dev->portsc[port] & PORT_PED))
+    if ((port >= USBN_ROOT_PORTS) || !dev->dev[port] || !(dev->portsc[port] & PORT_PED))
         return;
     if (dev->cmd & CMD_EGSM) {
         usbn_trace("UHCI: port %d: remote wakeup from global suspend", port + 1);
@@ -1103,7 +1104,19 @@ uhci_root_resume(void *priv, int port)
     }
 }
 
-static const usbn_root_ops_t uhci_root_ops = { uhci_root_connect, uhci_root_disconnect, uhci_root_resume };
+/* Nothing reaches the port: selectively suspended, or the bus in global
+   suspend (or stopped). */
+static int
+uhci_root_idle(void *priv, int port)
+{
+    const uhci_t *dev = (uhci_t *) priv;
+
+    if ((port >= USBN_ROOT_PORTS) || !(dev->portsc[port] & PORT_PED))
+        return 0;
+    return !!(dev->portsc[port] & PORT_SUSP) || !!(dev->cmd & CMD_EGSM);
+}
+
+static const usbn_root_ops_t uhci_root_ops = { uhci_root_connect, uhci_root_disconnect, uhci_root_resume, uhci_root_idle };
 
 static uhci_t *
 uhci_core_create(const usbn_pci_id_t *id)

@@ -180,6 +180,16 @@
               </property>
              </widget>
             </item>
+            <item>
+             <widget class="QLabel" name="labelUSBHub">
+              <property name="text">
+               <string>Hub:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="comboBoxUSBHub"/>
+            </item>
            </layout>
           </item>
           <item row="9">

@@ -171,9 +171,9 @@ typedef struct ehci_t {
     mem_mapping_t mmio;
 
     uint32_t cmd, sts, intr, frindex, periodic, async, configflag;
-    uint32_t portsc[USBN_PORTS];
+    uint32_t portsc[USBN_ROOT_PORTS];
 
-    usbn_device_t *dev[USBN_PORTS];   /* what is plugged into each port */
+    usbn_device_t *dev[USBN_ROOT_PORTS];   /* what is plugged into each port */
     uhci_t        *uhci;              /* the companion, function 0      */
 
     pc_timer_t frame_timer;
@@ -255,7 +255,7 @@ static const usbn_root_ops_t ehci_root_ops = { ehci_root_connect, ehci_root_disc
 static usbn_device_t *
 ehci_find_device(ehci_t *dev, uint8_t addr)
 {
-    for (int p = 0; p < USBN_PORTS; p++) {
+    for (int p = 0; p < USBN_ROOT_PORTS; p++) {
         usbn_device_t *d = dev->dev[p];
         if (d && !port_companion_owned(dev, p) && (dev->portsc[p] & PORT_PED) && !(dev->portsc[p] & (PORT_PR | PORT_SUSP))
             && (d->addr == addr))
@@ -600,7 +600,7 @@ ehci_reset_regs(ehci_t *dev)
     dev->periodic   = 0;
     dev->async      = 0;
     dev->configflag = 0;
-    for (int p = 0; p < USBN_PORTS; p++) {
+    for (int p = 0; p < USBN_ROOT_PORTS; p++) {
         dev->portsc[p] = PORT_PP | PORT_PO;
         if (dev->dev[p]) {
             dev->dev[p]->addr = 0;
@@ -622,7 +622,7 @@ ehci_readl(uint32_t addr, void *priv)
         case 0x00:
             return OPREG | (0x0100 << 16);                /* CAPLENGTH, HCIVERSION 1.00 */
         case 0x04:
-            return USBN_PORTS | (USBN_PORTS << 8) | (1 << 12);   /* N_PORTS, N_PCC, N_CC = 1 */
+            return USBN_ROOT_PORTS | (USBN_ROOT_PORTS << 8) | (1 << 12);   /* N_PORTS, N_PCC, N_CC = 1 */
         case 0x08:
             return 0x00000010;                            /* IST 1 frame, no 64-bit, no EECP */
         case 0x0c:
@@ -652,7 +652,7 @@ ehci_readl(uint32_t addr, void *priv)
         case R_CONFIGFLAG:
             return dev->configflag;
         default:
-            if ((a >= R_PORTSC) && (a < R_PORTSC + 4 * USBN_PORTS))
+            if ((a >= R_PORTSC) && (a < R_PORTSC + 4 * USBN_ROOT_PORTS))
                 return dev->portsc[(a - R_PORTSC) >> 2];
             return 0;
     }
@@ -738,7 +738,7 @@ ehci_writel(uint32_t addr, uint32_t val, void *priv)
         case R_CONFIGFLAG:
             if ((val & 1) != dev->configflag) {
                 dev->configflag = val & 1;
-                for (int p = 0; p < USBN_PORTS; p++) {
+                for (int p = 0; p < USBN_ROOT_PORTS; p++) {
                     /* Every port goes to EHCI when the driver takes over, and
                        back to the companion if it lets go. */
                     if (dev->configflag)
@@ -750,7 +750,7 @@ ehci_writel(uint32_t addr, uint32_t val, void *priv)
             }
             break;
         default:
-            if ((a >= R_PORTSC) && (a < R_PORTSC + 4 * USBN_PORTS))
+            if ((a >= R_PORTSC) && (a < R_PORTSC + 4 * USBN_ROOT_PORTS))
                 ehci_write_portsc(dev, (a - R_PORTSC) >> 2, val);
             break;
     }
@@ -777,7 +777,7 @@ ehci_writeb(uint32_t addr, uint8_t val, void *priv)
     int      shift = (addr & 3) * 8;
     uint32_t cur   = ehci_readl(a, priv);
 
-    if (((a - OPREG) == R_USBSTS) || (((a - OPREG) >= R_PORTSC) && ((a - OPREG) < R_PORTSC + 4 * USBN_PORTS)))
+    if (((a - OPREG) == R_USBSTS) || (((a - OPREG) >= R_PORTSC) && ((a - OPREG) < R_PORTSC + 4 * USBN_ROOT_PORTS)))
         cur &= ~(PORT_RWC | 0x3f);
     cur = (cur & ~(0xffu << shift)) | ((uint32_t) val << shift);
     ehci_writel(a, cur, priv);
@@ -790,7 +790,7 @@ ehci_writew(uint32_t addr, uint16_t val, void *priv)
     int      shift = (addr & 2) * 8;
     uint32_t cur   = ehci_readl(a, priv);
 
-    if (((a - OPREG) == R_USBSTS) || (((a - OPREG) >= R_PORTSC) && ((a - OPREG) < R_PORTSC + 4 * USBN_PORTS)))
+    if (((a - OPREG) == R_USBSTS) || (((a - OPREG) >= R_PORTSC) && ((a - OPREG) < R_PORTSC + 4 * USBN_ROOT_PORTS)))
         cur &= ~(PORT_RWC | 0x3f);
     cur = (cur & ~(0xffffu << shift)) | ((uint32_t) val << shift);
     ehci_writel(a, cur, priv);
@@ -915,7 +915,7 @@ ehci_close(void *priv)
 {
     ehci_t *dev = (ehci_t *) priv;
 
-    for (int p = 0; p < USBN_PORTS; p++)
+    for (int p = 0; p < USBN_ROOT_PORTS; p++)
         uhci_route_port(dev->uhci, p, NULL);
     usbn_set_root(NULL, dev, 0);
     uhci_companion_close(dev->uhci);

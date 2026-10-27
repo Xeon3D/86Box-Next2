@@ -92,6 +92,8 @@ static int                   unplug[USBN_PORTS];  /* waiting to be pulled out   
 static const usbn_root_ops_t *root;
 static void                 *root_priv;
 static int                   root_high_speed;
+static const usbn_hub_ops_t  *hub;        /* a hub's downstream ports, slots USBN_ROOT_PORTS on */
+static void                  *hub_priv;
 
 static void
 bus_lock(void)
@@ -130,6 +132,8 @@ usbn_set_root(const usbn_root_ops_t *ops, void *priv, int high_speed)
             devs[p] = plug[p] = NULL;
             unplug[p]         = 0;
         }
+        hub      = NULL;
+        hub_priv = NULL;
     }
     root            = ops;
     root_priv       = ops ? priv : NULL;
@@ -171,13 +175,13 @@ usbn_move_root(void *from, const usbn_root_ops_t *ops, void *priv)
         return 0;
     }
     old = root;
-    for (int p = 0; p < USBN_PORTS; p++) {
+    for (int p = 0; p < USBN_ROOT_PORTS; p++) {
         if (devs[p])
             old->disconnect(from, p);
     }
     root      = ops;
     root_priv = priv;
-    for (int p = 0; p < USBN_PORTS; p++) {
+    for (int p = 0; p < USBN_ROOT_PORTS; p++) {
         if (devs[p])
             ops->connect(priv, p, devs[p]);
     }
@@ -195,14 +199,56 @@ usbn_root_owner(void)
 void
 usbn_remote_wakeup(usbn_device_t *dev)
 {
-    if ((root == NULL) || (root->resume == NULL))
+    if (root == NULL)
         return;
     for (int p = 0; p < USBN_PORTS; p++) {
-        if (devs[p] == dev) {
-            root->resume(root_priv, p);
-            return;
-        }
+        if (devs[p] != dev)
+            continue;
+        if (p < USBN_ROOT_PORTS) {
+            if (root->resume)
+                root->resume(root_priv, p);
+        } else if (hub && hub->resume)
+            hub->resume(hub_priv, p - USBN_ROOT_PORTS);
+        return;
     }
+}
+
+/* Emulation thread only, and without the lock: a hub that goes away does so
+   from inside usbn_apply() (unplugged) or usbn_set_root() (the bus). */
+void
+usbn_set_hub(const usbn_hub_ops_t *ops, void *priv)
+{
+    hub      = ops;
+    hub_priv = ops ? priv : NULL;
+    usbn_trace(ops ? "a hub is on the bus: ports %d-%d" : "the hub is gone", USBN_ROOT_PORTS + 1, USBN_PORTS);
+}
+
+int
+usbn_port_exists(int port)
+{
+    return (port >= 0) && ((port < USBN_ROOT_PORTS) || ((port < USBN_PORTS) && (hub != NULL)));
+}
+
+int
+usbn_root_idle(usbn_device_t *dev)
+{
+    if ((root == NULL) || (root->idle == NULL))
+        return 0;
+    for (int p = 0; p < USBN_ROOT_PORTS; p++) {
+        if (devs[p] == dev)
+            return root->idle(root_priv, p);
+    }
+    return 0;
+}
+
+usbn_device_t *
+usbn_route(usbn_device_t *d, uint8_t addr, int low_speed)
+{
+    if (d == NULL)
+        return NULL;
+    if (d->addr == addr)
+        return d;
+    return d->route ? d->route(d, addr, low_speed) : NULL;
 }
 
 double
@@ -232,7 +278,10 @@ usbn_apply(void *priv)
             unplug[p] = 0;
             if (devs[p]) {
                 usbn_device_t *d = devs[p];
-                root->disconnect(root_priv, p);
+                if (p < USBN_ROOT_PORTS)
+                    root->disconnect(root_priv, p);
+                else if (hub)
+                    hub->disconnect(hub_priv, p - USBN_ROOT_PORTS);
                 devs[p] = NULL;
                 pclog("USB: %s unplugged from port %d\n", d->name, p + 1);
                 usbn_trace("port %d: %s unplugged", p + 1, d->name);
@@ -240,14 +289,17 @@ usbn_apply(void *priv)
                     d->destroy(d);
             }
         }
-        if (plug[p] && (devs[p] == NULL)) {
+        if (plug[p] && (devs[p] == NULL) && ((p < USBN_ROOT_PORTS) || hub)) {
             devs[p] = plug[p];
             plug[p] = NULL;
             pclog("USB: %s plugged into port %d\n", devs[p]->name, p + 1);
             usbn_trace("port %d: %s plugged in (%s speed%s)", p + 1, devs[p]->name,
                        (devs[p]->speed == USBN_SPEED_HIGH) ? "high" : ((devs[p]->speed == USBN_SPEED_LOW) ? "low" : "full"),
                        root_high_speed ? "" : ", on a USB 1.1 controller");
-            root->connect(root_priv, p, devs[p]);
+            if (p < USBN_ROOT_PORTS)
+                root->connect(root_priv, p, devs[p]);
+            else
+                hub->connect(hub_priv, p - USBN_ROOT_PORTS, devs[p]);
         }
         if (devs[p] && devs[p]->frame)
             devs[p]->frame(devs[p]);
@@ -260,7 +312,7 @@ usbn_port_busy(int port)
 {
     int busy;
 
-    if (!root || (port < 0) || (port >= USBN_PORTS))
+    if (!root || !usbn_port_exists(port))
         return 1;
     bus_lock();
     busy = (devs[port] != NULL && !unplug[port]) || (plug[port] != NULL);
@@ -286,7 +338,7 @@ usbn_port_name(int port, char *buf, int len)
 int
 usbn_attach(int port, usbn_device_t *d)
 {
-    if (!root || !d || (port < 0) || (port >= USBN_PORTS) || usbn_port_busy(port))
+    if (!root || !d || !usbn_port_exists(port) || usbn_port_busy(port))
         return 0;
     bus_lock();
     plug[port] = d;
@@ -319,6 +371,9 @@ usbn_restore_ports(void)
         char     err[512];
 
         if (sscanf(usbn_port_cfg[p], "%x:%x", &vid, &pid) != 2)
+            continue;
+        /* Not there yet (a hub port before the hub), or already planned. */
+        if (!usbn_port_exists(p) || usbn_port_busy(p))
             continue;
         usbn_device_t *d = usbn_host_open((uint16_t) vid, (uint16_t) pid, err, sizeof(err));
         if (d)

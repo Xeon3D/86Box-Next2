@@ -5,7 +5,8 @@ name: Sync with upstream
 # USB interface the southbridges call (usb.h, usb_legacy.c: src/usb/usb_chipset.c implements it
 # over the fork's controllers) are the fork's own: upstream's changes to them are left out
 # (KEEP_OURS).  Upstream's CLAP Sound Canvas host, MUNT (MT-32), the network card modem and its
-# own USB stack (controllers, device core and devices, which the fork replaced with src/usb/),
+# own USB stack (controllers and devices, which the fork replaced with src/usb/ -- all but its
+# device core usb_dev.c and hub usb_hub.c, which are taken as upstream has them),
 # removed here, stay removed (KEEP_DELETED).  On a conflict or a failed push it opens (or updates) an issue in this
 # repository instead.
 #
@@ -36,8 +37,7 @@ env:
   KEEP_OURS: README.md src/sound/midi_soundcanvas.c src/include/86box/usb.h src/usb_legacy.c
   # Upstream files the fork deleted, kept deleted whatever upstream does to them.
   KEEP_DELETED: src/sound/clap src/sound/midi_mt32.c src/sound/munt src/include/mt32emu src/network/net_modem.c
-    src/usb.c src/usb_dev.c src/include/86box/usb_dev.h src/usb_hid.c src/usb_hub.c src/usb_msd.c
-    src/usb_audio.c src/usb_card.c src/usb_card_via.c
+    src/usb.c src/usb_hid.c src/usb_msd.c src/usb_audio.c src/usb_card.c src/usb_card_via.c
 
 jobs:
   sync:

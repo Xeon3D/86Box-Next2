@@ -620,14 +620,16 @@ wr_dword(uint32_t a, uint32_t v)
 }
 
 static usbn_device_t *
-find_device(ohci_t *dev, int addr)
+find_device(ohci_t *dev, int addr, int ls)
 {
     for (int i = 0; i < dev->ndp; i++) {
         const ohci_port_t *p = &dev->port[i];
+        usbn_device_t     *d;
 
+        /* The device, or one behind the hub on the port. */
         if (p->dev && (p->sts & PS_CCS) && (p->sts & PS_PES) && !(p->sts & (PS_PSS | PS_PRS)) &&
-            (p->dev->addr == addr))
-            return p->dev;
+            ((d = usbn_route(p->dev, addr, ls)) != NULL))
+            return d;
     }
     return NULL;
 }
@@ -751,7 +753,7 @@ service_gtd(ohci_t *dev, uint32_t ed_addr, uint32_t *ed)
     dev->bits_left -= bus_bits(ls, 0, in, len);
 
     toggle = (td[0] & 0x02000000) ? ((td[0] >> 24) & 1) : !!(ed[2] & ED_C);
-    d      = find_device(dev, fa);
+    d      = find_device(dev, fa, ls);
     if (d == NULL) {
         usbn_trace("OHCI: no device at address %d (pid %02X ep %d): not responding", fa, pid, en);
         ret = USBN_NODEV;
@@ -857,7 +859,7 @@ service_itd(ohci_t *dev, uint32_t ed_addr, uint32_t *ed)
     dev->bits_left -= bus_bits(0, 1, dir == 2, size);
 
     addr = ((start & 0x1000) ? (be & ~0xfff) : bp0) | (start & 0xfff);
-    d    = find_device(dev, fa);
+    d    = find_device(dev, fa, 0);
     if (d && d->iso) {
         if (dir == 2) {
             n = d->iso(d, USB_PID_IN, en, buf, size);
@@ -1473,7 +1475,26 @@ root_resume(void *priv, int port)
         port_remote_wakeup(&dev->port[port]);
 }
 
-static const usbn_root_ops_t ohci_root_ops = { root_connect, root_disconnect, root_resume };
+/* Nothing reaches the port: disabled, suspended, or the HC in USBSUSPEND. */
+static int
+root_idle(void *priv, int port)
+{
+    const ohci_t      *dev = (ohci_t *) priv;
+    const ohci_port_t *p;
+
+    if (port >= OHCI_MAX_PORTS)
+        return 0;
+    p = &dev->port[port];
+    if (!(p->sts & PS_CCS) || (p->sts & PS_PRS) || ((dev->control & CTL_HCFS) == HCFS_RESET))
+        return 0;
+    if (!(p->sts & PS_PES))
+        return 1;
+    if (((dev->control & CTL_HCFS) == HCFS_RESUME) || (p->timer_op == PORT_TIMER_RESUME))
+        return 0;
+    return ((dev->control & CTL_HCFS) == HCFS_SUSPEND) || !!(p->sts & PS_PSS);
+}
+
+static const usbn_root_ops_t ohci_root_ops = { root_connect, root_disconnect, root_resume, root_idle };
 
 /* ------------------------------------------------------- the interface --- */
 

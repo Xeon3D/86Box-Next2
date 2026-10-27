@@ -18,7 +18,11 @@
 extern "C" {
 #endif
 
-#define USBN_PORTS      2
+/* The bus's slots: the root ports, then the downstream ports of a hub (the
+   4-port hub, usb_hub.c, on a root port; they exist while it does). */
+#define USBN_ROOT_PORTS 2
+#define USBN_HUB_PORTS  4
+#define USBN_PORTS      (USBN_ROOT_PORTS + USBN_HUB_PORTS)
 
 #define USB_PID_SETUP   0x2d
 #define USB_PID_IN      0x69
@@ -51,6 +55,8 @@ typedef struct usbn_device_t {
     void (*reset)(struct usbn_device_t *dev);    /* port reset */
     void (*frame)(struct usbn_device_t *dev);    /* once per 1 ms frame (optional) */
     void (*destroy)(struct usbn_device_t *dev);  /* unplugged */
+    /* A hub (optional): the enabled device downstream answering at addr. */
+    struct usbn_device_t *(*route)(struct usbn_device_t *dev, uint8_t addr, int low_speed);
 } usbn_device_t;
 
 /* ---- the ports (usb_bus.c) ---- */
@@ -61,7 +67,16 @@ typedef struct usbn_root_ops_t {
     void (*connect)(void *priv, int port, usbn_device_t *dev);
     void (*disconnect)(void *priv, int port);
     void (*resume)(void *priv, int port);   /* the device signals remote wakeup (optional) */
+    int  (*idle)(void *priv, int port);     /* nothing reaches the port: its device is suspended (optional) */
 } usbn_root_ops_t;
+
+/* The hub's downstream ports (bus slots USBN_ROOT_PORTS on), through the
+   bridge to upstream's usb_hub.c (usb_devbridge.c). */
+typedef struct usbn_hub_ops_t {
+    void (*connect)(void *priv, int hub_port, usbn_device_t *dev);
+    void (*disconnect)(void *priv, int hub_port);
+    void (*resume)(void *priv, int hub_port);
+} usbn_hub_ops_t;
 
 /* A controller takes the ports (returns 0 when another one has them: the
    first one keeps them -- a motherboard's own, made with the chipset, before
@@ -70,6 +85,13 @@ extern int            usbn_set_root(const usbn_root_ops_t *ops, void *priv, int 
 extern void           usbn_apply(void *priv);       /* once per frame, from the root (others: no-op) */
 extern int            usbn_bus_high_speed(void);    /* the root takes USB 2.0 devices */
 extern usbn_device_t *usbn_port_device(int port);
+/* A hub came (ops) or went (NULL): its downstream ports are bus slots. */
+extern void           usbn_set_hub(const usbn_hub_ops_t *ops, void *priv);
+extern int            usbn_port_exists(int port);
+/* The device on a root port is suspended (its port, or the whole bus). */
+extern int            usbn_root_idle(usbn_device_t *dev);
+/* A root port's device, or one behind the hub on it, answering at addr. */
+extern usbn_device_t *usbn_route(usbn_device_t *root_dev, uint8_t addr, int low_speed);
 /* Hand the ports from one controller to another without unplugging anything
    (a southbridge turned the owner's function off).  Returns 0 unless from
    has them. */

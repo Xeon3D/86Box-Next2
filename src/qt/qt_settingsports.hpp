@@ -28,8 +28,16 @@ public:
     void restore();
     void save(int soft);
 
-    /* 86Box-Next: Ports > USB, what is on each USB port. */
+    /* 86Box-Next: Ports > USB, what is on each USB port, and the hub (1 the
+       USB 1.1 one, 2 the USB 2.0 one, 0 none) chosen on one of them. */
     QString usbAssignment(int slot) const;
+
+    /* 86Box-Next: the COM ports, for the Modems page. */
+    int  comDevice(int i) const;
+    bool comEnabled(int i) const;
+    void setComDevice(int i, int device);
+    void comConfigured(int i);
+    int     usbHub() const;
     void    refreshUsb();
 
 public slots:
@@ -70,13 +78,17 @@ private:
 
     void updateLptPortTracking(int i);
     void buildUsbTab();
-    void usbChoiceChanged(int slot);
+    void comChanged(int i);
+    QLabel *comNote[SERIAL_MAX_UI] {};
+    void usbChoiceChanged(int slot, const QString &what);
 
-    QComboBox *usbCombo[USBN_PORTS] {};
-    QLabel    *usbLabel[USBN_PORTS] {};
-    QLabel    *usbNone  = nullptr;
-    QString    usbCfg[USBN_PORTS];   /* the choices, kept for ports not shown now */
-    bool       usbFilling = false;
+    void usbRow(class QVBoxLayout *layout, int slot, int indent, bool controllerPort);
+
+    QWidget     *usbTab  = nullptr;
+    QWidget     *usbTree = nullptr;   /* rebuilt by refreshUsb() */
+    QString      usbCfg[USBN_PORTS];  /* the choices, kept for ports not shown now */
+    int          usbHubType = 0;
+    bool         usbFilling = false;
 
     int                lpt_device_cfg_changed[4] = { 0, 0, 0, 0 };
     int                com_device_cfg_changed[SERIAL_MAX_UI] = { 0 };

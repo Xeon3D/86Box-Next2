@@ -59,7 +59,7 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   device instance #1/#2 (socket A/B); a PC network card links through
   `net_cards_conf[NET_CARD_MAX + socket]` (`NET_CONF_MAX`). Tests: `tests/pcmcia/` (controller;
   CIS parsed by pcmcia-cs cistpl.c's rules, Windows IDs pinned to ones Windows 98 produced).
-- USB (`src/usb/`, Settings > Other peripherals, PCI): UHCI USB 1.1 cards (VIA
+- USB (`src/usb/`, Settings > Other peripherals > USB, PCI): UHCI USB 1.1 cards (VIA
   VT83C572, Intel PIIX4) and USB 2.0 cards (EHCI + UHCI companion: VIA VT6202, Intel
   ICH4 layout with EHCI at function 7), ports in `usb_bus.c`, host passthrough via
   libusb (UsbDk on Windows when installed) in `usb_host.c` -- bulk/interrupt/control,
@@ -240,7 +240,7 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   menu: "Telephone network (isp-server)", "Set phone number...", the number in the status line.
   (Line 2 was the built-in ISP for a day; the exchange still reaches the ISP on any unknown
   number.)
-- Internal modem card (`src/char/modem_card.c`, Settings > Other peripherals > Internal modem, one
+- Internal modem card (`src/char/modem_card.c`, Settings > Modems > Internal modem, one
   per machine, `modem_card` in `[Other peripherals]`, ISA, hard reset; the `io_board.c` pattern):
   Diamond SupraExpress 56i Sp (`supra56i`) -- the modem engine (`char_modem_attach()`, label
   "Internal (ISA)", voice) on a detached 16550 decoded on the ISA bus, IRQ via `picint_common()` as
@@ -404,6 +404,21 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   (`time_fixed_year` in `[Machine]`, 0 = none; wins over `time_offset_years`). `nvr_time_sync()`
   turns it into an offset from the host's year at the hard reset (`fixed_year_host`), so syncs
   after a pause keep the clock running. Only applies while time sync is on.
+- Settings layout (2026-10-28): the page list ends Other peripherals, Modems, Integration ("Ports
+  (COM & LPT)" is "Ports"). Other peripherals' tabs are USB (up to four cards, `usbn_card_get/set()`,
+  config `usb_card`, `usb_card_2`-`_4`, ports `card_1`, `card2_1`...; offered up to the free PCI slots of
+  the machine that ran last -- `pci_get_normal_slots()`/`pci_get_normal_cards()`, recorded by
+  `pci_register_cards()` -- else all four), PCMCIA, ISA (the old General tab's ISA devices, the memory
+  expansion and ROM cards, in group boxes) and Arcade IO; the old General tab is gone. Modems
+  (`src/qt/qt_settingsmodems.cpp`) and Integration (Guest Tools) are rows of Other peripherals' (saved
+  with it: `modemsPage()`, `integrationPage()`) placed as pages; Modems also lists the COM ports'
+  modems -- the same choice as Ports > Serial ports (`SettingsPorts::comDevice()/setComDevice()`), with
+  each one's Configure -- and, while a machine runs, every modem's live state ("Now", 1 s). In Ports a
+  COM port holding a modem shows its settings under it (`SettingsModems::summary()`), and its
+  Configure switches to Modems and presses that port's Configure there (`Settings::showModemsPage()`).
+  Ports > USB is a tree: a heading per controller (the motherboard's, its second on the 686 boards, each
+  card by name), its ports, and under the port with the hub the hub's ports; the hub (USB 1.1 or 2.0) is
+  chosen in a controller port's dropdown (the Hub dropdown is gone; `usbn_hub_type` saved from Ports).
 - Soft settings changes (no PC reset, `Settings::accept()`'s soft path): a PC Card put in, taken
   out, swapped or reconfigured (settings page hands it to `pcmcia_request_card()` /
   `pcmcia_request_reinsert()`; only fitting/removing the controller is hard; `tests/pcmcia/slots_test.c`);
@@ -423,7 +438,7 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   rebuilds the status bar. A new icon group needs a key there and a name in `iconGroupName()`.
   Preferences OK replaces `MachineStatus`; `adoptMenus()` carries the PC Card/USB/modem/Sound
   Canvas hooks over (they were lost before).
-- 86Box Guest Tools (Settings > Other peripherals, `guest_tools_enabled` in `[Other peripherals]`,
+- 86Box Guest Tools (Settings > Integration, `guest_tools_enabled` in `[Other peripherals]`,
   any machine, hard reset; device `guest_tools` with `pointer` and `clipboard` options): our own
   VMware Tools-like integration -- no VMware backdoor. `src/device/guest_tools.c` is a two-port channel
   at 86B0h (`guest_tools_proto.h`, shared with the agents: command port reads "86BX", the data port is

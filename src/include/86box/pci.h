@@ -313,6 +313,8 @@ extern uint16_t    pci_apic_save_intin_routes(ioapic_pci_intin_route_state_t *ro
 extern void        pci_apic_load_intin_routes(const ioapic_pci_intin_route_state_t *routes, uint16_t count);
 
 /* Add a PCI card. */
+extern int         pci_get_normal_slots(void);   /* 86Box-Next */
+extern int         pci_get_normal_cards(void);
 extern void        pci_add_card(uint8_t add_type, uint8_t (*read)(int func, int addr, int len, void *priv),
                                 void (*write)(int func, int addr, int len, uint8_t val, void *priv), void *priv, uint8_t *slot);
 

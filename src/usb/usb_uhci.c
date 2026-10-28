@@ -207,7 +207,25 @@ typedef struct uhci_t {
     int        present;
 } uhci_t;
 
-int usb_card_type = 0;
+int        usb_card_type = 0;
+static int usb_card_more[USBN_CARDS - 1];   /* cards 2 to 4 */
+
+int
+usbn_card_get(int i)
+{
+    if ((i < 0) || (i >= USBN_CARDS))
+        return 0;
+    return i ? usb_card_more[i - 1] : usb_card_type;
+}
+
+void
+usbn_card_set(int i, int type)
+{
+    if (i == 0)
+        usb_card_type = type;
+    else if ((i > 0) && (i < USBN_CARDS))
+        usb_card_more[i - 1] = type;
+}
 
 /* ------------------------------------------------------------- the IRQ --- */
 
@@ -1398,10 +1416,13 @@ void
 usb_card_reset(void)
 {
     /* Its controller takes the card's ports (usb_bus.c). */
-    if ((usb_card_type > 0) && (usb_card_type < usb_card_count())) {
-        usbn_card_context = 1;
-        device_add(usb_cards[usb_card_type]);
-        usbn_card_context = 0;
+    for (int i = 0; i < USBN_CARDS; i++) {
+        const int t = usbn_card_get(i);
+        if ((t > 0) && (t < usb_card_count())) {
+            usbn_card_context = i + 1;
+            device_add_inst(usb_cards[t], i + 1);
+            usbn_card_context = 0;
+        }
     }
 }
 

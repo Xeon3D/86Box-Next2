@@ -29,7 +29,8 @@ public:
     int currentSoundCard(int i) const;
     int currentScsiCard(int i) const;
     int currentPcmciaCard(int s) const;
-    int currentUsbCard() const;
+    int currentUsbCard(int i = 0) const;
+    void currentUsbCards(int *cards) const;   /* USBN_CARDS of them */
     /* 86Box-Next: the USB state as the pages have it now (Ports > USB). */
     int     currentUsbHub() const;
     bool    currentUsbKeyboard() const;
@@ -38,6 +39,10 @@ public:
     QString currentUsbAssignment(int slot) const;
     bool    currentUsbPortExists(int slot) const;
     void    usbStateChanged();   /* a page changed it: the others follow */
+    void    modemsChanged();     /* a COM port or the internal modem changed */
+    void    showModemsPage(int com);   /* Ports' Configure on a modem: Modems, and its Configure */
+    class SettingsPorts            *portsPage() const { return ports; }
+    class SettingsOtherPeripherals *otherPage() const { return otherPeripherals; }
 
     static Settings *settings;
 protected slots:
@@ -58,6 +63,8 @@ private:
         PAGE_FLOPPYCDROM,
         PAGE_REMOVABLE,
         PAGE_OTHER,
+        PAGE_MODEMS,
+        PAGE_INTEGRATION,
         PAGE_COUNT
     };
 
@@ -77,6 +84,7 @@ private:
     SettingsFloppyCDROM        *floppyCdrom;
     SettingsOtherRemovable     *otherRemovable;
     SettingsOtherPeripherals   *otherPeripherals;
+    class SettingsModems *modems = nullptr;
 
     friend class SettingsMachine;
     friend class SettingsDisplay;

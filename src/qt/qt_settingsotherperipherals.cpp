@@ -17,6 +17,12 @@
 #include <cstdint>
 #include <cstdio>
 #include <vector>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QGroupBox>
+#include <QLabel>
+#include <QScrollArea>
+#include <QTabWidget>
 #ifdef USE_VFIO
 #    include <algorithm>
 #    include <cstring>
@@ -40,6 +46,7 @@ extern "C" {
 #include <86box/io_board.h>
 #include <86box/modem_card.h>
 #include <86box/usb_next.h>
+#include <86box/pci.h>
 #include <86box/unittester.h>
 #include <86box/guest_tools.h>
 #include <86box/softpower.h>
@@ -52,6 +59,7 @@ extern "C" {
 #include "qt_settings_completer.hpp"
 
 #include "qt_usb_manager.hpp"
+#include "qt_settings.hpp"
 #include "qt_settingsotherperipherals.hpp"
 #include "qt_settingspcmcia.hpp"
 #include "ui_qt_settingsotherperipherals.h"
@@ -224,9 +232,98 @@ SettingsOtherPeripherals::SettingsOtherPeripherals(QWidget *parent)
 {
     ui->setupUi(this);
 
-    /* 86Box-Next: the PC Card controller and its sockets, a tab of its own. */
-    pcmcia = new SettingsPcmcia(this);
-    ui->tabWidgetSound->addTab(pcmcia, QIcon(":/settings/qt/icons/pcmcia.ico"), tr("PCMCIA"));
+    /* 86Box-Next: the tabs are USB, PCMCIA, ISA and Arcade IO.  The rows of
+       the old General tab move there, and the internal modem and the Guest
+       Tools onto pages of their own (Modems, Integration: modemsPage() and
+       integrationPage(), shown by Settings); their settings stay this page's. */
+    {
+        QTabWidget *tabs = ui->tabWidgetSound;
+
+        /* USB: the controller cards (what is on the ports is Ports > USB). */
+        auto *usbTab    = new QWidget();
+        auto *usbLayout = new QVBoxLayout(usbTab);
+        auto *usbRow    = new QHBoxLayout();
+        ui->gridLayout->removeItem(ui->horizontalLayoutUSB);
+        ui->labelUSB->setText(tr("Card 1:"));
+        usbRow->addWidget(ui->labelUSB);
+        usbRow->addWidget(ui->comboBoxUSB, 1);
+        usbLayout->addLayout(usbRow);
+        for (int i = 1; i < USBN_CARDS; i++) {
+            auto *row      = new QHBoxLayout();
+            usbMoreLabel[i] = new QLabel(tr("Card %1:").arg(i + 1));
+            usbMore[i]      = new QComboBox();
+            row->addWidget(usbMoreLabel[i]);
+            row->addWidget(usbMore[i], 1);
+            usbLayout->addLayout(row);
+            connect(usbMore[i], qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int index) {
+                if (index >= 0)
+                    on_comboBoxUSB_currentIndexChanged(0);
+            });
+        }
+        usbLayout->addWidget(ui->labelUSBHint);
+        usbLayout->addStretch(1);
+
+        /* PCMCIA: the PC Card controller and its sockets. */
+        pcmcia = new SettingsPcmcia(this);
+
+        /* ISA: the devices, the memory expansion cards, the ROM cards. */
+        auto *isaInner  = new QWidget();
+        auto *isaLayout = new QVBoxLayout(isaInner);
+        auto *devBox    = new QGroupBox(tr("Devices"));
+        auto *devLayout = new QVBoxLayout(devBox);
+        for (QLayout *l : { (QLayout *) ui->horizontalLayoutRtc, (QLayout *) ui->horizontalLayoutIBPC, (QLayout *) ui->horizontalLayoutUT,
+                            (QLayout *) ui->horizontalLayoutKeyCard, (QLayout *) ui->horizontalLayoutSoftPower }) {
+            ui->gridLayout->removeItem(l);
+            devLayout->addLayout(l);
+        }
+        isaLayout->addWidget(devBox);
+        auto *memBox    = new QGroupBox(tr("Memory expansion cards"));
+        auto *memLayout = new QVBoxLayout(memBox);
+        memLayout->addWidget(ui->widgetMemExp);
+        isaLayout->addWidget(memBox);
+        auto *romBox    = new QGroupBox(tr("ROM cards"));
+        auto *romLayout = new QVBoxLayout(romBox);
+        romLayout->addWidget(ui->widget_3);
+        isaLayout->addWidget(romBox);
+        isaLayout->addStretch(1);
+        auto *isaTab = new QScrollArea();
+        isaTab->setWidget(isaInner);
+        isaTab->setWidgetResizable(true);
+        isaTab->setFrameShape(QFrame::NoFrame);
+
+        /* Arcade IO: the arcade I/O board and its controls. */
+        auto *arcadeTab    = new QWidget();
+        auto *arcadeLayout = new QVBoxLayout(arcadeTab);
+        ui->gridLayout->removeItem(ui->horizontalLayoutIOBoard);
+        arcadeLayout->addLayout(ui->horizontalLayoutIOBoard);
+        arcadeLayout->addWidget(ui->labelIOBoardHint);
+        arcadeLayout->addStretch(1);
+
+        /* The pages of their own. */
+        modems             = new QWidget();
+        auto *modemsLayout = new QVBoxLayout(modems);
+        modemsLayout->setContentsMargins(0, 0, 0, 0);
+        ui->gridLayout->removeItem(ui->horizontalLayoutModemCard);
+        modemsLayout->addLayout(ui->horizontalLayoutModemCard);
+
+        integration            = new QWidget();
+        auto *integrationLayout = new QVBoxLayout(integration);
+        auto *integrationIntro  = new QLabel(tr("86Box Guest Tools: the guest's pointer follows the host's without capturing it, the clipboard and files are shared, and files can be dragged in and out. Install the agent in the guest with Tools > Install 86Box Guest Tools."));
+        integrationIntro->setWordWrap(true);
+        ui->gridLayout->removeItem(ui->horizontalLayoutGuestTools);
+        integrationLayout->addWidget(integrationIntro);
+        integrationLayout->addLayout(ui->horizontalLayoutGuestTools);
+        integrationLayout->addStretch(1);
+
+        /* The old tabs go; the new ones in their order, VFIO (if built) last. */
+        for (QWidget *old : { ui->tabGeneral, ui->tabMemExp, ui->tabIsaRom })
+            tabs->removeTab(tabs->indexOf(old));
+        tabs->insertTab(0, usbTab, QIcon(":/settings/qt/icons/usb.ico"), tr("USB"));
+        tabs->insertTab(1, pcmcia, QIcon(":/settings/qt/icons/pcmcia.ico"), tr("PCMCIA"));
+        tabs->insertTab(2, isaTab, QIcon(":/settings/qt/icons/isa_memory.ico"), tr("ISA"));
+        tabs->insertTab(3, arcadeTab, QIcon(":/settings/qt/icons/other_peripherals.ico"), tr("Arcade IO"));
+        tabs->setCurrentIndex(0);
+    }
 
     /* Memory expansion cards: one shared set of four slots, fed from the
        ISA board list (isamem) on ISA machines and from the MCA board list
@@ -411,18 +508,16 @@ SettingsOtherPeripherals::onCurrentMachineChanged(int machineId)
     ui->comboBoxModemCard->setEnabled(machineHasIsaOrSidecar);
     ui->pushButtonConfigureModemCard->setEnabled((modem_card_type != MODEM_CARD_NONE) && modem_card_has_config(modem_card_type) && machineHasIsaOrSidecar);
 
-    // USB controller card: a PCI card.
-    ui->comboBoxUSB->clear();
-    for (int i = 0; i < usb_card_count(); i++)
-        ui->comboBoxUSB->addItem((i == 0) ? tr("None") : QString(usb_card_get_name(i)), i);
-    ui->comboBoxUSB->setCurrentIndex(machine_has_bus(machineId, MACHINE_BUS_PCI) ? usb_card_type : 0);
-    ui->comboBoxUSB->setEnabled(machine_has_bus(machineId, MACHINE_BUS_PCI) > 0);
-
-    // A hub on the USB controller's first free port: USB 1.1 (upstream's) or 2.0.
-    ui->comboBoxUSBHub->clear();
-    for (int i = 0; i < usbn_hub_count(); i++)
-        ui->comboBoxUSBHub->addItem((i == 0) ? tr("None") : QString(usbn_hub_get_name(i)), i);
-    ui->comboBoxUSBHub->setCurrentIndex(usbn_hub_type);
+    // USB controller cards: PCI cards, as many as the free PCI slots.
+    for (int c = 0; c < USBN_CARDS; c++) {
+        QComboBox *box = usbBox(c);
+        box->blockSignals(true);
+        box->clear();
+        for (int i = 0; i < usb_card_count(); i++)
+            box->addItem((i == 0) ? tr("None") : QString(usb_card_get_name(i)), i);
+        box->setCurrentIndex(machine_has_bus(machineId, MACHINE_BUS_PCI) ? usbn_card_get(c) : 0);
+        box->blockSignals(false);
+    }
     updateUSBHint();
 
     // Memory Expansion Cards (shared UI: ISA or MCA boards depending on
@@ -521,8 +616,8 @@ SettingsOtherPeripherals::changed()
     has_changed |= io_board_cfg_changed;
     has_changed |= (modem_card_type        != ui->comboBoxModemCard->currentData().toInt());
     has_changed |= modem_card_cfg_changed;
-    has_changed |= (usb_card_type          != ui->comboBoxUSB->currentData().toInt());
-    has_changed |= (usbn_hub_type          != usbHub());
+    for (int c = 0; c < USBN_CARDS; c++)
+        has_changed |= (usbn_card_get(c) != usbCard(c));
     has_changed |= (bugger_enabled         != (ui->checkBoxISABugger->isChecked() ? 1 : 0));
     has_changed |= (postcard_enabled       != (ui->checkBoxPOSTCard->isChecked() ? 1 : 0));
     has_changed |= (unittester_enabled     != (ui->checkBoxUnitTester->isChecked() ? 1 : 0));
@@ -578,8 +673,8 @@ SettingsOtherPeripherals::save(int soft)
     isartc_type            = ui->comboBoxRTC->currentData().toInt();
     io_board_type          = hasIsaOrSidecarBus(machineId) ? ui->comboBoxIOBoard->currentData().toInt() : IO_BOARD_NONE;
     modem_card_type        = hasIsaOrSidecarBus(machineId) ? ui->comboBoxModemCard->currentData().toInt() : MODEM_CARD_NONE;
-    usb_card_type          = machine_has_bus(machineId, MACHINE_BUS_PCI) ? ui->comboBoxUSB->currentData().toInt() : 0;
-    usbn_hub_type          = usbHub();
+    for (int c = 0; c < USBN_CARDS; c++)
+        usbn_card_set(c, usbCard(c));
     bugger_enabled         = ui->checkBoxISABugger->isChecked() ? 1 : 0;
     postcard_enabled       = ui->checkBoxPOSTCard->isChecked() ? 1 : 0;
     unittester_enabled     = ui->checkBoxUnitTester->isChecked() ? 1 : 0;
@@ -649,23 +744,39 @@ SettingsOtherPeripherals::updateUSBHint()
 {
     QString text;
 
-    if (!machine_has_bus(machineId, MACHINE_BUS_PCI))
-        text = tr("The USB controller is a PCI card, and this machine has no PCI slot. Choose a machine with PCI slots on the Machine page to fit one.");
-    else if (UsbManager::machineHasOnboardUsb(machineId))
-        text = (ui->comboBoxUSB->currentData().toInt() > 0)
-                   ? tr("This motherboard has its own USB controller, and it has the two USB ports: a USB card would have none. Leave this at None.")
-                   : tr("This motherboard has its own USB controller, with the two USB ports; no card is needed.");
-    else if (!usbn_host_available())
-        text = tr("This build has no USB passthrough, so devices on the host cannot be connected.");
+    /* As many cards as free PCI slotText: known for the machine that ran last
+       (its slotText, less the PCI cards that are not ours), else all four. */
+    const bool pci   = machine_has_bus(machineId, MACHINE_BUS_PCI) > 0;
+    int        allow = USBN_CARDS;
+    QString    slotText;
 
-    /* The hub needs a controller: the motherboard's or the card. */
-    const bool hubOk = UsbManager::machineHasOnboardUsb(machineId) || (usbCard() > 0);
-    ui->comboBoxUSBHub->setEnabled(hubOk);
-    ui->labelUSBHub->setEnabled(hubOk);
-    const QString hubTip = hubOk ? tr("A 4-port hub on the first free USB port: up to four more devices (the USB keyboard takes the other root port, the mouse and host devices the hub's ports). The USB 2.0 hub runs at high speed on a USB 2.0 card's port, with full- and low-speed devices behind it reached through its transaction translator; on a USB 1.1 port it is a full-speed hub. Windows 98 and later and Linux drive both; most BIOSes' USB keyboard support does not see devices behind a hub.")
-                                 : tr("A hub needs a USB controller: the motherboard's own or a USB card.");
-    ui->comboBoxUSBHub->setToolTip(hubTip);
-    ui->labelUSBHub->setToolTip(hubTip);
+    if (pci && (machineId == ::machine) && (pci_get_normal_slots() > 0)) {
+        int ours = 0;
+        for (int c = 0; c < USBN_CARDS; c++)
+            ours += (usbn_card_get(c) > 0);
+        const int others = pci_get_normal_cards() - ours;
+        const int free   = pci_get_normal_slots() - ((others > 0) ? others : 0);
+        allow            = (free < 0) ? 0 : ((free > USBN_CARDS) ? USBN_CARDS : free);
+        slotText = tr("This board has %n PCI slot(s)", "", pci_get_normal_slots()) + ", " +
+                tr("%n of them free for USB cards (as the machine was last started).", "", allow);
+    } else if (pci)
+        slotText = tr("Up to four cards; how many PCI slotText this board has free is known once it has run.");
+    for (int c = 0; c < USBN_CARDS; c++) {
+        const bool on = pci && ((c < allow) || (usbBox(c)->currentData().toInt() > 0));
+        usbBox(c)->setEnabled(on);
+        if (c > 0) {
+            usbMoreLabel[c]->setEnabled(on);
+        }
+    }
+
+    if (!pci)
+        text = tr("A USB controller card is a PCI card, and this machine has no PCI slot. Choose a machine with PCI slotText on the Machine page to fit one.");
+    else if (UsbManager::machineHasOnboardUsb(machineId))
+        text = tr("This motherboard has its own USB controller; each card adds two more ports beside it. What is plugged into each port is chosen in Ports > USB.") + " " + slotText;
+    else
+        text = tr("Each card has two ports; what is plugged into them is chosen in Ports > USB.") + " " + slotText;
+    if (!usbn_host_available())
+        text += " " + tr("This build has no USB passthrough, so devices on the host cannot be connected.");
 
     ui->labelUSBHint->setVisible(!text.isEmpty());
     ui->labelUSBHint->setText(QString("<small>&#9432; %1</small>").arg(text.toHtmlEscaped()));
@@ -732,12 +843,22 @@ SettingsOtherPeripherals::on_comboBoxModemCard_currentIndexChanged(int index)
 
     const int card = ui->comboBoxModemCard->currentData().toInt();
     ui->pushButtonConfigureModemCard->setEnabled((card != MODEM_CARD_NONE) && modem_card_has_config(card) && hasIsaOrSidecarBus(machineId));
+    if (Settings::settings)
+        Settings::settings->modemsChanged();
+}
+
+int
+SettingsOtherPeripherals::modemCard() const
+{
+    return hasIsaOrSidecarBus(machineId) ? ui->comboBoxModemCard->currentData().toInt() : MODEM_CARD_NONE;
 }
 
 void
 SettingsOtherPeripherals::on_pushButtonConfigureModemCard_clicked()
 {
     modem_card_cfg_changed |= DeviceConfig::ConfigureDevice(modem_card_get_device(ui->comboBoxModemCard->currentData().toInt()));
+    if (Settings::settings)
+        Settings::settings->modemsChanged();
 }
 
 /* Shared memory-expansion slot helpers: resolve the board device and its
@@ -940,16 +1061,18 @@ SettingsOtherPeripherals::pcmciaCard(int s) const
     return pcmcia->socketCard(s);
 }
 
-int
-SettingsOtherPeripherals::usbHub() const
+QComboBox *
+SettingsOtherPeripherals::usbBox(int i) const
 {
-    return ui->comboBoxUSBHub->isEnabled() ? ui->comboBoxUSBHub->currentData().toInt() : 0;
+    return (i == 0) ? ui->comboBoxUSB : usbMore[i];
 }
 
 int
-SettingsOtherPeripherals::usbCard() const
+SettingsOtherPeripherals::usbCard(int i) const
 {
-    return machine_has_bus(machineId, MACHINE_BUS_PCI) ? ui->comboBoxUSB->currentData().toInt() : 0;
+    if ((i < 0) || (i >= USBN_CARDS) || !machine_has_bus(machineId, MACHINE_BUS_PCI))
+        return 0;
+    return usbBox(i)->currentData().toInt();
 }
 
 void

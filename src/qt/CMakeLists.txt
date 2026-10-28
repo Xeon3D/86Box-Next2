@@ -207,6 +207,7 @@ add_library(ui STATIC
     qt_settingsotherremovable.hpp
     qt_settingsotherremovable.ui
     qt_settingsotherperipherals.cpp
+    qt_settingsmodems.cpp
     qt_settingsotherperipherals.hpp
     qt_settingsotherperipherals.ui
     qt_settingspcmcia.cpp

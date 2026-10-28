@@ -82,6 +82,8 @@ static uint8_t     last_normal_pci_card_id = 0;
 static uint8_t     last_pci_bus = 1;
 static uint8_t     next_pci_card = 0;
 static uint8_t     normal_pci_cards = 0;
+static int         pci_seen_normal_slots = 0;   /* 86Box-Next: pci_get_normal_slots() */
+static int         pci_seen_normal_cards = 0;
 static uint8_t     next_normal_pci_card = 0;
 static uint8_t     pci_card_to_slot_mapping[256][PCI_CARDS_NUM];
 static uint8_t     pci_bus_number_to_index_mapping[256];
@@ -1322,10 +1324,28 @@ pci_register_cards(void)
         }
     }
 
+    /* 86Box-Next: what Settings shows as free PCI slots. */
+    pci_seen_normal_slots = last_normal_pci_card;
+    pci_seen_normal_cards = normal_pci_cards;
+
     next_pci_card = 0;
     normal_pci_cards = 0;
 
     next_normal_pci_card = 0;
+}
+
+/* 86Box-Next: the running machine's normal PCI slots and the cards that took
+   one, as of its last hard reset (Settings > Other peripherals > USB). */
+int
+pci_get_normal_slots(void)
+{
+    return pci_seen_normal_slots;
+}
+
+int
+pci_get_normal_cards(void)
+{
+    return pci_seen_normal_cards;
 }
 
 static void

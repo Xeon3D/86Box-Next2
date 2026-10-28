@@ -49,6 +49,8 @@ main(void)
     CHECK(!strcmp(usbn_port_key(USBN_ROOT_PORTS + 1, key, sizeof(key)), "onboard2_2"), "the second function's port 2 (%s)", key);
     CHECK(!strcmp(usbn_port_key(USBN_HUB_BASE + 2, key, sizeof(key)), "hub_3"), "hub port 3 (%s)", key);
     CHECK(usbn_port_from_key("card_2") == (USBN_ROLE_CARD * USBN_ROOT_PORTS + 1), "card_2 found by name");
+    CHECK(usbn_port_from_key("card2_1") == ((USBN_ROLE_CARD + 1) * USBN_ROOT_PORTS), "the second card's port 1 (card2_1)");
+    CHECK(usbn_port_role(usbn_port_from_key("card4_2")) == (USBN_ROLE_CARD + 3), "the fourth card's ports");
     usbn_layout = 0;
     snprintf(usbn_legacy_cfg[0], sizeof(usbn_legacy_cfg[0]), "1234:5678");
     usbn_migrate(1, 1, 1);

@@ -182,7 +182,7 @@ usbn_set_root(const usbn_root_ops_t *ops, void *priv, int high_speed)
         return 1;
     }
     if (usbn_card_context)
-        r = USBN_ROLE_CARD;
+        r = USBN_ROLE_CARD + usbn_card_context - 1;
     else
         r = roots[USBN_ROLE_ONBOARD].ops ? USBN_ROLE_ONBOARD2 : USBN_ROLE_ONBOARD;
     if (roots[r].ops) {
@@ -199,7 +199,7 @@ usbn_set_root(const usbn_root_ops_t *ops, void *priv, int high_speed)
     if (getenv("BOX86NEXT_USB_TRACE") && !usbn_trace_on)
         usbn_trace_enable(1);
     usbn_trace("USB controller fitted (%s): %s", high_speed ? "USB 2.0" : "USB 1.1",
-               (r == USBN_ROLE_CARD) ? "the card" : ((r == USBN_ROLE_ONBOARD) ? "the motherboard's" : "the motherboard's second"));
+               (r >= USBN_ROLE_CARD) ? "a card" : ((r == USBN_ROLE_ONBOARD) ? "the motherboard's" : "the motherboard's second"));
     return 1;
 }
 
@@ -328,7 +328,7 @@ usbn_bus_ns(int low_speed, int iso, int in, int len)
 
 /* ------------------------------------------------------- port names --- */
 
-static const char *const role_keys[USBN_ROLES] = { "onboard", "onboard2", "card" };
+static const char *const role_keys[USBN_ROLES] = { "onboard", "onboard2", "card", "card2", "card3", "card4" };
 
 /* The config key of a slot: onboard_1, onboard2_2, card_1, hub_4. */
 const char *

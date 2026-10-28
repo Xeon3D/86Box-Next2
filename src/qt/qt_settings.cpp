@@ -67,6 +67,7 @@ extern "C" {
 #include "qt_settingsotherremovable.hpp"
 #include "qt_settingsotherperipherals.hpp"
 #include "qt_usb_manager.hpp"
+#include "qt_settingsmodems.hpp"
 
 #include "qt_preferences.hpp"
 
@@ -79,6 +80,7 @@ extern "C" {
 #include <QMessageBox>
 #include <QCheckBox>
 #include <QStyle>
+#include <QTimer>
 
 #include <dirent.h>
 #include <unistd.h>
@@ -91,12 +93,14 @@ static const QVector<PagedDialog::Page> settingsPages = {
     { "Input devices",           "input_devices"           },
     { "Sound",                   "sound"                   },
     { "Network",                 "network"                 },
-    { "Ports (COM & LPT)",       "ports"                   },
+    { "Ports",                   "ports"                   },
     { "Storage controllers",     "storage_controllers"     },
     { "Hard disks",              "hard_disk"               },
     { "Floppy & CD-ROM drives",  "floppy_and_cdrom_drives" },
     { "Other removable devices", "other_removable_devices" },
     { "Other peripherals",       "other_peripherals"       },
+    { "Modems",                  "modem"                   },
+    { "Integration",             "86Box-green"             },
 };
 
 Settings *Settings::settings = nullptr;
@@ -279,7 +283,19 @@ Settings::ensurePage(int index)
             }
             break;
 
+        case PAGE_MODEMS:
+            /* 86Box-Next: the COM ports' modems (Ports' choice) and the
+               internal modem (Other peripherals'). */
+            ensurePage(PAGE_PORTS);
+            ensurePage(PAGE_OTHER);
+            if (modems == nullptr) {
+                modems = new SettingsModems(otherPeripherals->modemsPage(), this);
+                placePage(PAGE_MODEMS, modems);
+            }
+            break;
+
         case PAGE_OTHER:
+        case PAGE_INTEGRATION:
             if (otherPeripherals == nullptr) {
                 otherPeripherals = new SettingsOtherPeripherals(this);
                 placePage(PAGE_OTHER, otherPeripherals);
@@ -293,6 +309,9 @@ Settings::ensurePage(int index)
                 });
                 if (machineId != ::machine)
                     otherPeripherals->onCurrentMachineChanged(machineId);
+                /* 86Box-Next: the Modems and Integration pages are rows of
+                   Other peripherals', saved with it. */
+                placePage(PAGE_INTEGRATION, otherPeripherals->integrationPage());
             }
             break;
 
@@ -356,18 +375,25 @@ Settings::currentPcmciaCard(int s) const
 }
 
 int
-Settings::currentUsbCard() const
+Settings::currentUsbCard(int i) const
 {
     if (otherPeripherals != nullptr)
-        return otherPeripherals->usbCard();
-    return usb_card_type;
+        return otherPeripherals->usbCard(i);
+    return usbn_card_get(i);
+}
+
+void
+Settings::currentUsbCards(int *cards) const
+{
+    for (int i = 0; i < USBN_CARDS; i++)
+        cards[i] = currentUsbCard(i);
 }
 
 int
 Settings::currentUsbHub() const
 {
-    if (otherPeripherals != nullptr)
-        return otherPeripherals->usbHub();
+    if (ports != nullptr)
+        return ports->usbHub();
     return usbn_hub_type;
 }
 
@@ -390,7 +416,10 @@ Settings::currentUsbMouse() const
 bool
 Settings::currentUsbPortExists(int slot) const
 {
-    return UsbManager::portExistsFor(currentMachine(), currentUsbCard(), currentUsbHub(), slot);
+    int cards[USBN_CARDS];
+
+    currentUsbCards(cards);
+    return UsbManager::portExistsFor(currentMachine(), cards, currentUsbHub(), slot);
 }
 
 QString
@@ -409,6 +438,25 @@ Settings::currentUsbAssigned(const char *what) const
             return p;
     }
     return -1;
+}
+
+void
+Settings::showModemsPage(int com)
+{
+    ensurePage(PAGE_MODEMS);
+    showPage(PAGE_MODEMS);
+    /* Once the page is up, its Configure for that port. */
+    QTimer::singleShot(0, this, [this, com] {
+        if (modems != nullptr)
+            modems->configureCom(com);
+    });
+}
+
+void
+Settings::modemsChanged()
+{
+    if (modems != nullptr)
+        modems->refresh();
 }
 
 void

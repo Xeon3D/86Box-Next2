@@ -167,11 +167,14 @@ SettingsInput::save(int soft)
 static bool
 usb_offered(int machineId)
 {
-    const int card = Settings::settings ? Settings::settings->currentUsbCard() : usb_card_type;
-
     if (UsbManager::machineHasOnboardUsb(machineId))
         return true;
-    return (card > 0) && (machine_has_bus(machineId, MACHINE_BUS_PCI) > 0);
+    for (int i = 0; i < USBN_CARDS; i++) {
+        const int card = Settings::settings ? Settings::settings->currentUsbCard(i) : usbn_card_get(i);
+        if ((card > 0) && (machine_has_bus(machineId, MACHINE_BUS_PCI) > 0))
+            return true;
+    }
+    return false;
 }
 
 void

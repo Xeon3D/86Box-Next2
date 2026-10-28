@@ -29,6 +29,7 @@ extern "C" {
 #include <86box/scsi_tape.h>
 #include <86box/serial.h>
 #include <86box/char.h>
+#include <86box/keyboard.h>
 }
 
 #include "qt_deviceconfig.hpp"
@@ -44,10 +45,13 @@ extern "C" {
 #include "ui_qt_settingsports.h"
 #include "qt_settings.hpp"
 #include "qt_usb_manager.hpp"
+#include "qt_settingsmodems.hpp"
 #include <QComboBox>
 #include <QGridLayout>
 #include <QLabel>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QTimer>
 
 #include <QStandardItem>
 
@@ -68,7 +72,95 @@ SettingsPorts::SettingsPorts(QWidget *parent)
     }
 
     buildUsbTab();
+
+    /* 86Box-Next: under a COM port holding a modem, where modems are set up. */
+    for (int i = 0; i < SERIAL_MAX_UI; i++) {
+        auto *check  = findChild<QCheckBox *>(QString("checkBoxSerial%1").arg(i + 1));
+        auto *combo  = findChild<QComboBox *>(QString("comboBoxCom%1").arg(i + 1));
+        auto *button = findChild<QPushButton *>(QString("pushButtonConfigureCom%1").arg(i + 1));
+        ui->gridLayoutCom->removeWidget(check);
+        ui->gridLayoutCom->removeWidget(combo);
+        ui->gridLayoutCom->removeWidget(button);
+        ui->gridLayoutCom->addWidget(check, 2 * i, 0);
+        ui->gridLayoutCom->addWidget(combo, 2 * i, 1);
+        ui->gridLayoutCom->addWidget(button, 2 * i, 2);
+        comNote[i] = new QLabel();
+        comNote[i]->setWordWrap(true);
+        comNote[i]->hide();
+        ui->gridLayoutCom->addWidget(comNote[i], 2 * i + 1, 1, 1, 2);
+    }
+
     onCurrentMachineChanged(machine);
+}
+
+/* ------------------------------------------- COM ports and the Modems page --- */
+
+static QComboBox *
+com_combo(const SettingsPorts *page, int i)
+{
+    return page->findChild<QComboBox *>(QString("comboBoxCom%1").arg(i + 1));
+}
+
+static bool
+com_is_modem(int chardev)
+{
+    const device_t *dev = char_get_device(chardev);
+
+    return dev && dev->internal_name && !strncmp(dev->internal_name, "modem_", 6);
+}
+
+int
+SettingsPorts::comDevice(int i) const
+{
+    QComboBox *c = com_combo(this, i);
+
+    return c ? c->currentData().toInt() : 0;
+}
+
+bool
+SettingsPorts::comEnabled(int i) const
+{
+    auto *check = findChild<QCheckBox *>(QString("checkBoxSerial%1").arg(i + 1));
+
+    return check && check->isChecked();
+}
+
+void
+SettingsPorts::setComDevice(int i, int device)
+{
+    QComboBox *c   = com_combo(this, i);
+    const int  row = c ? c->findData(device) : -1;
+
+    if (row >= 0)
+        c->setCurrentIndex(row);
+}
+
+void
+SettingsPorts::comConfigured(int i)
+{
+    if ((i >= 0) && (i < SERIAL_MAX_UI)) {
+        com_device_cfg_changed[i] = 1;
+        if (comNote[i])   /* the summary under the port */
+            comNote[i]->setText(QString("<small>&#9432; %1. %2</small>")
+                                    .arg(SettingsModems::summary(char_get_device(comDevice(i)), i + 1).toHtmlEscaped(),
+                                         tr("Set up in the Modems category (Configure).").toHtmlEscaped()));
+    }
+}
+
+/* A COM port's device changed: the note under it, and the Modems page. */
+void
+SettingsPorts::comChanged(int i)
+{
+    if (comNote[i]) {
+        const bool modem = comEnabled(i) && com_is_modem(comDevice(i));
+        if (modem)
+            comNote[i]->setText(QString("<small>&#9432; %1. %2</small>")
+                                    .arg(SettingsModems::summary(char_get_device(comDevice(i)), i + 1).toHtmlEscaped(),
+                                         tr("Set up in the Modems category (Configure).").toHtmlEscaped()));
+        comNote[i]->setVisible(modem);
+    }
+    if (Settings::settings)
+        Settings::settings->modemsChanged();
 }
 
 SettingsPorts::~SettingsPorts()
@@ -141,9 +233,10 @@ SettingsPorts::changed()
         }
     }
 
-    /* What is on the USB ports: plugged in at the hard reset. */
+    /* What is on the USB ports, and the hub: plugged in at the hard reset. */
     for (int p = 0; p < USBN_PORTS; p++)
         has_changed |= (usbCfg[p] != QString(usbn_port_cfg[p]));
+    has_changed |= (usbHub() != usbn_hub_type);
 
     return has_changed ? (SETTINGS_CHANGED | SETTINGS_REQUIRE_HARD_RESET) :
                          (soft_changed ? SETTINGS_CHANGED : 0);
@@ -177,7 +270,8 @@ SettingsPorts::save(int soft)
 
     for (int p = 0; p < USBN_PORTS; p++)
         snprintf(usbn_port_cfg[p], sizeof(usbn_port_cfg[p]), "%s", usbCfg[p].toUtf8().constData());
-    usbn_layout = 2;   /* assignments by port name from now on */
+    usbn_layout   = 2;   /* assignments by port name from now on */
+    usbn_hub_type = usbHub();
 
     if (soft)
         return;
@@ -187,35 +281,26 @@ SettingsPorts::save(int soft)
 
 /* ------------------------------------------------------------------ USB --- */
 
-/* 86Box-Next: the USB tab -- a row for every port of the USB controllers the
-   machine will have (the motherboard's, the card's) and of the hub, each with
-   what is plugged into it: the USB keyboard, the USB mouse, the hub (on a
+/* 86Box-Next: the USB tab -- the USB controllers the machine will have (the
+   motherboard's, a second one on the VIA 686 boards, the card), each with its
+   ports, and under the port with the hub the hub's ports; on each, what is
+   plugged in: the USB keyboard, the USB mouse, a USB 1.1 or 2.0 hub (on a
    controller's port), or a host device connected from the USB menu. */
 void
 SettingsPorts::buildUsbTab()
 {
-    auto *tab    = new QWidget();
-    auto *layout = new QVBoxLayout(tab);
-    auto *intro  = new QLabel(tr("What is plugged into each USB port when the machine starts. The USB keyboard and mouse are chosen on the Input devices page, the USB card and hub on Other peripherals; host devices are connected from the USB menu while the machine runs."));
-    auto *grid   = new QGridLayout();
+    auto *layout = new QVBoxLayout();
+    auto *intro  = new QLabel(tr("What is plugged into each USB port when the machine starts. The USB keyboard and mouse are chosen on the Input devices page, the USB card on Other peripherals; host devices are connected from the USB menu while the machine runs."));
 
+    usbTab = new QWidget();
+    usbTab->setLayout(layout);
     intro->setWordWrap(true);
     layout->addWidget(intro);
-    usbNone = new QLabel(tr("This machine has no USB controller: choose a motherboard with USB, or fit a USB card on Other peripherals."));
-    usbNone->setWordWrap(true);
-    layout->addWidget(usbNone);
-    for (int p = 0; p < USBN_PORTS; p++) {
-        usbCfg[p]   = QString(usbn_port_cfg[p]);
-        usbLabel[p] = new QLabel(UsbManager::portLabel(p) + ":");
-        usbCombo[p] = new QComboBox();
-        usbCombo[p]->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-        grid->addWidget(usbLabel[p], p, 0);
-        grid->addWidget(usbCombo[p], p, 1);
-        connect(usbCombo[p], qOverload<int>(&QComboBox::currentIndexChanged), this, [this, p](int) { usbChoiceChanged(p); });
-    }
-    layout->addLayout(grid);
     layout->addStretch(1);
-    ui->tabWidgetPorts->addTab(tab, tr("USB"));
+    for (int p = 0; p < USBN_PORTS; p++)
+        usbCfg[p] = QString(usbn_port_cfg[p]);
+    usbHubType = usbn_hub_type;
+    ui->tabWidgetPorts->addTab(usbTab, QIcon(":/settings/qt/icons/usb.ico"), tr("USB"));
 }
 
 QString
@@ -224,87 +309,155 @@ SettingsPorts::usbAssignment(int slot) const
     return ((slot >= 0) && (slot < USBN_PORTS)) ? usbCfg[slot] : QString();
 }
 
-/* The rows the machine has now, and on each the choices it can take. */
+/* The hub, when it is on a port the machine has. */
+int
+SettingsPorts::usbHub() const
+{
+    int cards[USBN_CARDS];
+
+    for (int i = 0; i < USBN_CARDS; i++)
+        cards[i] = Settings::settings ? Settings::settings->currentUsbCard(i) : usbn_card_get(i);
+    if (usbHubType <= 0)
+        return 0;
+    for (int p = 0; p < USBN_HUB_BASE; p++) {
+        if ((usbCfg[p] == "hub") && UsbManager::portExistsFor(machineId, cards, usbHubType, p))
+            return usbHubType;
+    }
+    return 0;
+}
+
+/* One port's row: its name and what is plugged in. */
+void
+SettingsPorts::usbRow(QVBoxLayout *layout, int slot, int indent, bool controllerPort)
+{
+    Settings  *s        = Settings::settings;
+    const bool keyboard = s ? s->currentUsbKeyboard() : (keyboard_type == KEYBOARD_TYPE_USB);
+    const bool mouse    = s ? s->currentUsbMouse() : false;
+    auto      *row      = new QHBoxLayout();
+    auto      *label    = new QLabel(controllerPort ? tr("Port %1:").arg((slot % USBN_ROOT_PORTS) + 1)
+                                                    : tr("Hub port %1:").arg(slot - USBN_HUB_BASE + 1));
+    auto      *combo    = new QComboBox();
+    QString    cur      = usbCfg[slot];
+    unsigned   vid, pid;
+
+    combo->addItem(tr("None"), QString());
+    if (keyboard)
+        combo->addItem(tr("USB keyboard"), QString("keyboard"));
+    if (mouse)
+        combo->addItem(tr("USB mouse"), QString("mouse"));
+    if (controllerPort) {
+        combo->addItem(tr("USB 1.1 hub (4 ports)"), QString("hub1"));
+        combo->addItem(tr("USB 2.0 hub (4 ports)"), QString("hub2"));
+        if (cur == "hub")
+            cur = QString("hub%1").arg(usbHubType);
+    }
+    if (sscanf(usbCfg[slot].toUtf8().constData(), "%x:%x", &vid, &pid) == 2)
+        combo->addItem(tr("Host device %1 (from the USB menu)").arg(usbCfg[slot]), usbCfg[slot]);
+    const int i = combo->findData(cur);
+    combo->setCurrentIndex((i >= 0) ? i : 0);
+    if (i < 0)
+        usbCfg[slot].clear();   /* not possible here any more (that device is not chosen) */
+    combo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    label->setMinimumWidth(80);
+    row->addSpacing(indent);
+    row->addWidget(label);
+    row->addWidget(combo, 1);
+    layout->addLayout(row);
+    connect(combo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this, combo, slot](int) {
+        if (!usbFilling) {
+            usbChoiceChanged(slot, combo->currentData().toString());
+        }
+    });
+}
+
+/* The tree as the machine, card, hub, keyboard and mouse are chosen now. */
 void
 SettingsPorts::refreshUsb()
 {
-    Settings *s = Settings::settings;
+    Settings  *s      = Settings::settings;
+    int        cards[USBN_CARDS];
+    auto      *layout = qobject_cast<QVBoxLayout *>(usbTab ? usbTab->layout() : nullptr);
+    bool       any    = false;
 
-    if (usbCombo[0] == nullptr)
+    if (layout == nullptr)
         return;
-
-    const int  card     = s ? s->currentUsbCard() : usb_card_type;
-    const int  hubType  = s ? s->currentUsbHub() : usbn_hub_type;
-    const bool keyboard = s ? s->currentUsbKeyboard() : false;
-    const bool mouse    = s ? s->currentUsbMouse() : false;
-    bool       any      = false;
-
-    /* A hub just chosen goes on the first free controller port. */
-    if (hubType > 0) {
-        bool placed = false;
-        for (int p = 0; p < USBN_HUB_BASE; p++)
-            placed |= UsbManager::portExistsFor(machineId, card, hubType, p) && (usbCfg[p] == "hub");
-        for (int p = 0; (p < USBN_HUB_BASE) && !placed; p++) {
-            if (UsbManager::portExistsFor(machineId, card, hubType, p) && usbCfg[p].isEmpty()) {
-                usbCfg[p] = "hub";
-                placed    = true;
-            }
-        }
-    }
-
+    for (int i = 0; i < USBN_CARDS; i++)
+        cards[i] = s ? s->currentUsbCard(i) : usbn_card_get(i);
     usbFilling = true;
-    for (int p = 0; p < USBN_PORTS; p++) {
-        const bool exists = UsbManager::portExistsFor(machineId, card, hubType, p);
+    if (usbTree) {
+        usbTree->hide();
+        usbTree->deleteLater();
+    }
+    usbTree    = new QWidget();
+    auto *tree = new QVBoxLayout(usbTree);
+    tree->setContentsMargins(0, 0, 0, 0);
 
-        usbLabel[p]->setVisible(exists);
-        usbCombo[p]->setVisible(exists);
-        if (!exists)
+    for (int r = 0; r < USBN_ROLES; r++) {
+        const int n = UsbManager::machinePorts(machineId, cards, r);
+        if (n <= 0)
             continue;
         any = true;
 
-        QComboBox *c = usbCombo[p];
-        c->clear();
-        c->addItem(tr("None"), QString());
-        if (keyboard)
-            c->addItem(tr("USB keyboard"), QString("keyboard"));
-        if (mouse)
-            c->addItem(tr("USB mouse"), QString("mouse"));
-        if ((hubType > 0) && (usbn_port_role(p) >= 0))
-            c->addItem(tr("USB hub"), QString("hub"));
-        unsigned vid, pid;
-        if (sscanf(usbCfg[p].toUtf8().constData(), "%x:%x", &vid, &pid) == 2)
-            c->addItem(tr("Host device %1 (from the USB menu)").arg(usbCfg[p]), usbCfg[p]);
-        const int i = c->findData(usbCfg[p]);
-        c->setCurrentIndex((i >= 0) ? i : 0);
-        if (i < 0)
-            usbCfg[p].clear();   /* no longer possible here (that device is not chosen) */
+        QString title;
+        if (r == USBN_ROLE_ONBOARD)
+            title = tr("Motherboard");
+        else if (r == USBN_ROLE_ONBOARD2)
+            title = tr("Motherboard (second USB controller)");
+        else if (r == USBN_ROLE_CARD)
+            title = QString(usb_card_get_name(cards[0]));
+        else
+            title = tr("%1 (card %2)").arg(QString(usb_card_get_name(cards[r - USBN_ROLE_CARD]))).arg(r - USBN_ROLE_CARD + 1);
+        auto *head = new QLabel(QString("<b>%1</b>").arg(title.toHtmlEscaped()));
+        tree->addWidget(head);
+
+        for (int i = 0; i < n; i++) {
+            const int slot = r * USBN_ROOT_PORTS + i;
+            usbRow(tree, slot, 16, true);
+            if ((usbCfg[slot] == "hub") && (usbHubType > 0)) {
+                for (int h = 0; h < USBN_HUB_PORTS; h++)
+                    usbRow(tree, USBN_HUB_BASE + h, 48, false);
+            }
+        }
+        tree->addSpacing(6);
     }
-    usbNone->setVisible(!any);
+    if (!any) {
+        auto *none = new QLabel(tr("This machine has no USB controller: choose a motherboard with USB, or fit a USB card on Other peripherals > USB."));
+        none->setWordWrap(true);
+        tree->addWidget(none);
+    }
+    layout->insertWidget(1, usbTree);
     usbFilling = false;
 }
 
-/* One port's choice: the keyboard, mouse and hub are on one port each, so
-   choosing one here takes it off any other. */
+/* One port's choice.  The keyboard, mouse and hub are on one port each, so
+   choosing one here takes it off any other; the tree is rebuilt once the
+   dropdown is done with its signal. */
 void
-SettingsPorts::usbChoiceChanged(int slot)
+SettingsPorts::usbChoiceChanged(int slot, const QString &what)
 {
-    if (usbFilling)
-        return;
-
-    const QString what = usbCombo[slot]->currentData().toString();
-
-    usbCfg[slot] = what;
-    if ((what == "keyboard") || (what == "mouse") || (what == "hub")) {
+    if (what.startsWith("hub")) {
+        usbHubType = what.mid(3).toInt();
+        usbCfg[slot] = "hub";
+    } else {
+        if (usbCfg[slot] == "hub")
+            usbHubType = 0;   /* the hub unplugged: its ports go with it */
+        usbCfg[slot] = what;
+    }
+    const QString one = usbCfg[slot];
+    if ((one == "keyboard") || (one == "mouse") || (one == "hub")) {
         for (int p = 0; p < USBN_PORTS; p++) {
-            if ((p != slot) && (usbCfg[p] == what))
+            if ((p != slot) && (usbCfg[p] == one))
                 usbCfg[p].clear();
         }
     }
-    if (Settings::settings)
-        Settings::settings->usbStateChanged();
-    else
-        refreshUsb();
+    QTimer::singleShot(0, this, [this] {
+        if (Settings::settings)
+            Settings::settings->usbStateChanged();
+        else
+            refreshUsb();
+    });
 }
+
 
 /* The character devices, for the parallel and serial port lists alike. */
 static const QVector<Models::Device> &
@@ -592,6 +745,7 @@ SettingsPorts::on_comboBoxCom1_currentIndexChanged(int index)
     int comDevice = ui->comboBoxCom1->currentData().toInt();
 
     ui->pushButtonConfigureCom1->setEnabled(ui->comboBoxCom1->isEnabled() && device_has_config(char_get_device(comDevice)));
+    comChanged(0);
 }
 
 void
@@ -600,7 +754,13 @@ SettingsPorts::on_pushButtonConfigureCom1_clicked()
     int   comDevice = ui->comboBoxCom1->currentData().toInt();
     auto *device    = char_get_device(comDevice);
 
+    /* 86Box-Next: a modem is set up in the Modems category. */
+    if (com_is_modem(comDevice) && Settings::settings) {
+        Settings::settings->showModemsPage(0);
+        return;
+    }
     com_device_cfg_changed[0] = DeviceConfig::ConfigureDevice(device, 1);
+    comChanged(0);
 }
 
 void
@@ -612,6 +772,7 @@ SettingsPorts::on_comboBoxCom2_currentIndexChanged(int index)
     int comDevice = ui->comboBoxCom2->currentData().toInt();
 
     ui->pushButtonConfigureCom2->setEnabled(ui->comboBoxCom2->isEnabled() && device_has_config(char_get_device(comDevice)));
+    comChanged(1);
 }
 
 void
@@ -620,7 +781,13 @@ SettingsPorts::on_pushButtonConfigureCom2_clicked()
     int   comDevice = ui->comboBoxCom2->currentData().toInt();
     auto *device    = char_get_device(comDevice);
 
+    /* 86Box-Next: a modem is set up in the Modems category. */
+    if (com_is_modem(comDevice) && Settings::settings) {
+        Settings::settings->showModemsPage(1);
+        return;
+    }
     com_device_cfg_changed[1] = DeviceConfig::ConfigureDevice(device, 2);
+    comChanged(1);
 }
 
 void
@@ -632,6 +799,7 @@ SettingsPorts::on_comboBoxCom3_currentIndexChanged(int index)
     int comDevice = ui->comboBoxCom3->currentData().toInt();
 
     ui->pushButtonConfigureCom3->setEnabled(ui->comboBoxCom3->isEnabled() && device_has_config(char_get_device(comDevice)));
+    comChanged(2);
 }
 
 void
@@ -640,7 +808,13 @@ SettingsPorts::on_pushButtonConfigureCom3_clicked()
     int   comDevice = ui->comboBoxCom3->currentData().toInt();
     auto *device    = char_get_device(comDevice);
 
+    /* 86Box-Next: a modem is set up in the Modems category. */
+    if (com_is_modem(comDevice) && Settings::settings) {
+        Settings::settings->showModemsPage(2);
+        return;
+    }
     com_device_cfg_changed[2] = DeviceConfig::ConfigureDevice(device, 3);
+    comChanged(2);
 }
 
 void
@@ -652,6 +826,7 @@ SettingsPorts::on_comboBoxCom4_currentIndexChanged(int index)
     int comDevice = ui->comboBoxCom4->currentData().toInt();
 
     ui->pushButtonConfigureCom4->setEnabled(ui->comboBoxCom4->isEnabled() && device_has_config(char_get_device(comDevice)));
+    comChanged(3);
 }
 
 void
@@ -660,7 +835,13 @@ SettingsPorts::on_pushButtonConfigureCom4_clicked()
     int   comDevice = ui->comboBoxCom4->currentData().toInt();
     auto *device    = char_get_device(comDevice);
 
+    /* 86Box-Next: a modem is set up in the Modems category. */
+    if (com_is_modem(comDevice) && Settings::settings) {
+        Settings::settings->showModemsPage(3);
+        return;
+    }
     com_device_cfg_changed[3] = DeviceConfig::ConfigureDevice(device, 4);
+    comChanged(3);
 }
 
 void

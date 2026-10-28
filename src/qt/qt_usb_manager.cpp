@@ -115,7 +115,7 @@ UsbManager::toolTip() const
    southbridge's two (the ALi M1543's M5237: three connectors; the VIA 686A/B:
    a second controller with two more), the card's two. */
 int
-UsbManager::machinePorts(int machineId, int card, int role)
+UsbManager::machinePorts(int machineId, const int *cards, int role)
 {
     const machine_t *m = &machines[machineId];
 
@@ -131,34 +131,38 @@ UsbManager::machinePorts(int machineId, int card, int role)
             return ((m->init == machine_at_6via90ap_init) || (m->init == machine_at_cuv4xls_init) || (m->init == machine_at_ms6318_init) ||
                     (m->init == machine_at_m790mr_init) || (m->init == machine_at_cairo5_init) || (m->init == machine_at_ficva503a_init) ||
                     (m->init == machine_at_5emapro_init)) ? 2 : 0;
-        case USBN_ROLE_CARD:
-            return ((card > 0) && (machine_has_bus(machineId, MACHINE_BUS_PCI) > 0)) ? 2 : 0;
         default:
+            /* A card: two ports, on a machine with PCI. */
+            if ((role >= USBN_ROLE_CARD) && (role < USBN_ROLES))
+                return ((cards[role - USBN_ROLE_CARD] > 0) && (machine_has_bus(machineId, MACHINE_BUS_PCI) > 0)) ? 2 : 0;
             return 0;
     }
 }
 
 bool
-UsbManager::portExistsFor(int machineId, int card, int hub, int slot)
+UsbManager::portExistsFor(int machineId, const int *cards, int hub, int slot)
 {
     const int role = usbn_port_role(slot);
 
     if (role == -1) {
         int any = 0;
         for (int r = 0; r < USBN_ROLES; r++)
-            any += machinePorts(machineId, card, r);
+            any += machinePorts(machineId, cards, r);
         return (hub > 0) && (any > 0);
     }
-    return (role >= 0) && ((slot % USBN_ROOT_PORTS) < machinePorts(machineId, card, role));
+    return (role >= 0) && ((slot % USBN_ROOT_PORTS) < machinePorts(machineId, cards, role));
 }
 
 /* A port by the controller it is on, as Settings > Ports > USB names it. */
 QString
 UsbManager::portLabel(int slot)
 {
-    const int n = (usbn_port_role(slot) == -1) ? (slot - USBN_HUB_BASE + 1) : ((slot % USBN_ROOT_PORTS) + 1);
+    const int n    = (usbn_port_role(slot) == -1) ? (slot - USBN_HUB_BASE + 1) : ((slot % USBN_ROOT_PORTS) + 1);
+    const int role = usbn_port_role(slot);
 
-    switch (usbn_port_role(slot)) {
+    if (role > USBN_ROLE_CARD)
+        return tr("USB card %1 port %2").arg(role - USBN_ROLE_CARD + 1).arg(n);
+    switch (role) {
         case USBN_ROLE_ONBOARD:
             return tr("Motherboard port %1").arg(n);
         case USBN_ROLE_ONBOARD2:
@@ -175,7 +179,11 @@ UsbManager::portLabel(int slot)
 bool
 UsbManager::fitted()
 {
-    return (usb_card_type > 0) || usbn_present();
+    for (int i = 0; i < USBN_CARDS; i++) {
+        if (usbn_card_get(i) > 0)
+            return true;
+    }
+    return usbn_present();
 }
 
 bool

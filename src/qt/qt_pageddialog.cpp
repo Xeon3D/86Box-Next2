@@ -107,6 +107,12 @@ PagedDialog::showFirstPage()
 }
 
 void
+PagedDialog::showPage(int index)
+{
+    ui->listView->setCurrentIndex(ui->listView->model()->index(index, 0));
+}
+
+void
 PagedDialog::aboutToShowPage(int index)
 {
     (void) index;

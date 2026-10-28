@@ -2,6 +2,10 @@
 #define QT_SETTINGSOTHERPERIPHERALS_HPP
 
 #include <QWidget>
+
+extern "C" {
+#include <86box/usb_next.h>
+}
 #ifdef USE_VFIO
 #    include <QList>
 #    include <QPair>
@@ -21,14 +25,24 @@ class VFIODeviceModel;
 class SettingsOtherPeripherals : public QWidget {
     Q_OBJECT
 
+    QWidget *modems      = nullptr;
+    QWidget *integration = nullptr;
+    class QComboBox *usbMore[USBN_CARDS] {};       /* cards 2 to 4 (index 1-3) */
+    class QLabel    *usbMoreLabel[USBN_CARDS] {};
+    class QComboBox *usbBox(int i) const;
+
 public:
     explicit SettingsOtherPeripherals(QWidget *parent = nullptr);
     ~SettingsOtherPeripherals();
 
     int  changed();
     int  pcmciaCard(int s) const;   /* the PC Card chosen for socket s now */
-    int  usbCard() const;           /* the USB controller chosen now */
-    int  usbHub() const;            /* the USB hub chosen now (0 without a controller) */
+    int  usbCard(int i = 0) const;  /* USB controller card i (0-3) chosen now */
+    int  modemCard() const;         /* the internal modem chosen now */
+    /* 86Box-Next: the Modems and Integration pages, built from this page's
+       rows (their settings are saved with it). */
+    QWidget *modemsPage() const { return modems; }
+    QWidget *integrationPage() const { return integration; }
 
     void restore();
     void save(int soft);

@@ -25,8 +25,9 @@ extern "C" {
    onboard_1, onboard2_2, card_1, hub_3 (usbn_port_key()). */
 #define USBN_ROLE_ONBOARD  0
 #define USBN_ROLE_ONBOARD2 1
-#define USBN_ROLE_CARD     2
-#define USBN_ROLES         3
+#define USBN_ROLE_CARD     2   /* the first card; the others follow */
+#define USBN_CARDS         4
+#define USBN_ROLES         (USBN_ROLE_CARD + USBN_CARDS)
 #define USBN_ROOT_PORTS    3
 #define USBN_HUB_PORTS     4
 #define USBN_HUB_BASE      (USBN_ROLES * USBN_ROOT_PORTS)
@@ -87,7 +88,7 @@ typedef struct usbn_hub_ops_t {
 } usbn_hub_ops_t;
 
 /* A controller comes with its ports (two; usbn_set_root_ports() for more),
-   in the card's block while usbn_card_context is set (usb_card_reset()),
+   in card N's block while usbn_card_context is N + 1 (usb_card_reset()),
    else the motherboard's; or goes (ops NULL), releasing what was on them. */
 extern int            usbn_card_context;
 extern int            usbn_set_root(const usbn_root_ops_t *ops, void *priv, int high_speed);
@@ -120,6 +121,10 @@ extern double         usbn_bus_ns(int low_speed, int iso, int in, int len);
 
 /* ---- the host controller cards (usb_uhci.c, usb_ehci.c) ---- */
 extern int usb_card_type;                   /* (C) USB controller card, 0 = none */
+/* The cards, up to USBN_CARDS (usb_card, usb_card_2 ...): card 0 is
+   usb_card_type. */
+extern int  usbn_card_get(int i);
+extern void usbn_card_set(int i, int type);
 
 extern void        usb_card_reset(void);
 extern const char *usb_card_get_internal_name(int card);

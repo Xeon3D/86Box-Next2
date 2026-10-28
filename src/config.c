@@ -2830,6 +2830,11 @@ load_other_peripherals(void)
     /* 86Box-Next: the USB controller card, and what is plugged into it. */
     p             = ini_section_get_string(cat, "usb_card", "none");
     usb_card_type = usb_card_get_from_internal_name(p);
+    for (int u = 1; u < USBN_CARDS; u++) {
+        char key[16];
+        sprintf(key, "usb_card_%d", u + 1);
+        usbn_card_set(u, usb_card_get_from_internal_name(ini_section_get_string(cat, key, "none")));
+    }
     p             = ini_section_get_string(cat, "usb_hub", "none");
     usbn_hub_type = usbn_hub_get_from_internal_name(p);
     /* What is on each USB port, by the port's name (layout 2); an older
@@ -3127,6 +3132,8 @@ config_load(void)
         io_board_type     = IO_BOARD_NONE;
         modem_card_type   = MODEM_CARD_NONE;
         usb_card_type     = 0;
+        for (int u = 1; u < USBN_CARDS; u++)
+            usbn_card_set(u, 0);
         for (i = 0; i < ISAROM_MAX; i++)
             isarom_type[i] = 0;
         for (i = 0; i < ISAMEM_MAX; i++)
@@ -4421,6 +4428,14 @@ save_other_peripherals(void)
         ini_section_delete_var(cat, "usb_card");
     else
         ini_section_set_string(cat, "usb_card", (char *) usb_card_get_internal_name(usb_card_type));
+    for (int u = 1; u < USBN_CARDS; u++) {
+        char key[16];
+        sprintf(key, "usb_card_%d", u + 1);
+        if (usbn_card_get(u) == 0)
+            ini_section_delete_var(cat, key);
+        else
+            ini_section_set_string(cat, key, (char *) usb_card_get_internal_name(usbn_card_get(u)));
+    }
     if (usbn_hub_type == 0)
         ini_section_delete_var(cat, "usb_hub");
     else

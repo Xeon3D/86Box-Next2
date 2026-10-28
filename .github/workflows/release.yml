@@ -143,7 +143,24 @@ jobs:
           ./linuxdeploy-${{ matrix.arch }}.AppImage --appdir AppDir \
             --desktop-file AppDir/usr/share/applications/net.86box.86Box.desktop \
             --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/net.86box.86Box.png \
-            --plugin qt --output appimage
+            --plugin qt
+          # The host's GL is used, but not every host has libglvnd's libOpenGL
+          # and libGLX (Debian's libopengl0): point those at libGL.so.1, which
+          # carries both (upstream's AppImages use a shim library for this).
+          find AppDir -type f | while IFS= read -r f; do
+            needed=$(patchelf --print-needed "$f" 2>/dev/null) || continue
+            args=
+            for lib in libOpenGL.so.0 libGLX.so.0; do
+              echo "$needed" | grep -qFx "$lib" || continue
+              if [ -z "$args" ] && ! echo "$needed" | grep -qFx libGL.so.1; then
+                args="--replace-needed $lib libGL.so.1"
+              else
+                args="$args --remove-needed $lib"
+              fi
+            done
+            [ -z "$args" ] || { echo "GL: $f $args"; patchelf $args "$f"; }
+          done
+          ./linuxdeploy-${{ matrix.arch }}.AppImage --appdir AppDir --output appimage
           ls -l *.AppImage
       - uses: actions/upload-artifact@v5
         with:

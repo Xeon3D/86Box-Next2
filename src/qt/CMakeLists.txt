@@ -638,7 +638,7 @@ if (APPLE AND CMAKE_MACOSX_BUNDLE)
         fixup_bundle(\"\${CMAKE_INSTALL_PREFIX_ABSOLUTE}/86Box-Next2.app\" \"${RUNTIME_PLUGINS}\" \"${DIRS}\")
         execute_process(
             COMMAND ${CMAKE_INSTALL_NAME_TOOL} -add_rpath \"@executable_path/../Frameworks/\"
-            \"\${CMAKE_INSTALL_PREFIX_ABSOLUTE}/${INSTALL_RUNTIME_DIR}/86Box\")
+            \"\${CMAKE_INSTALL_PREFIX_ABSOLUTE}/${INSTALL_RUNTIME_DIR}/$<TARGET_FILE_NAME:86Box>\")
         ")
 endif()
 

@@ -1,0 +1,304 @@
+# 86Box-Next2 release builds, the platforms upstream 86Box releases for:
+#   Windows x64, Windows ARM64 (no dynarec), Linux x86_64 and arm64 (no
+#   dynarec) AppImages, macOS x86_64+arm64 (one universal app bundle),
+#   plus isp-server for each.
+#
+# Run by hand (Actions > Release > Run workflow, or
+#   gh workflow run release.yml --ref release-N -f release=N -f build=B
+# ) on the commit to release.  `release` is the title bar's "Release N"
+# (NEXT_RELEASE); `build` is the last build number (.build-number), so every
+# platform shows build B+1.  With `publish` on, the assets go to a draft
+# release on tag release-N (the tag must already be pushed); publishing the
+# draft stays a manual step.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Release number (title bar: Release N)"
+        required: true
+      build:
+        description: "Last build number (.build-number); the builds get this + 1"
+        required: true
+      publish:
+        description: "Upload to a draft release on tag release-N"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+env:
+  NEXT_RELEASE: ${{ inputs.release }}
+  SLUG: Release-${{ inputs.release }}
+
+jobs:
+
+  windows:
+    name: Windows ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-2025
+            msystem: UCRT64
+            name: Windows-64
+            dynarec: "ON"
+          - arch: ARM64
+            runner: windows-11-arm
+            msystem: CLANGARM64
+            name: NDR-Windows-ARM64
+            dynarec: "OFF"
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+          install: zip
+          pacboy: >-
+            toolchain:p cmake:p ninja:p pkgconf:p
+            qt6-static:p qt6-translations:p
+            freetype:p libpng:p zlib:p zstd:p openal:p sdl3:p rtmidi:p
+            fluidsynth:p libslirp:p libsndfile:p libserialport:p
+            vulkan-headers:p libtiff:p libwebp:p libusb:p
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Build
+        run: |
+          echo "${{ inputs.build }}" > .build-number
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DQT=ON -DSTATIC_BUILD=ON \
+            -DDYNAREC=${{ matrix.dynarec }} -DLATEST_VERSIONS=OFF
+          cmake --build build
+      - name: Package
+        run: |
+          d=86Box-Next2-${{ matrix.name }}-$SLUG
+          mkdir -p "dist/$d"
+          strip -o "dist/$d/86Box-Next2.exe" build/src/86Box-Next2.exe
+          strip -o "dist/$d/isp-server.exe" build/isp-server/isp-server.exe
+          cp COPYING "dist/$d/"
+          (cd dist && zip -r "../$d.zip" "$d")
+      - uses: actions/upload-artifact@v5
+        with:
+          name: windows-${{ matrix.arch }}
+          path: 86Box-Next2-*.zip
+
+  linux:
+    name: Linux ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    container: debian:trixie  # upstream's AppImages are built on Debian trixie too
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+            name: Linux-x86_64
+            dynarec: "ON"
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+            name: NDR-Linux-arm64
+            dynarec: "OFF"
+    env:
+      APPIMAGE_EXTRACT_AND_RUN: 1
+    steps:
+      - name: Dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config git ca-certificates wget file patchelf \
+            libfreetype-dev libpng-dev zlib1g-dev libzstd-dev libopenal-dev libsdl3-dev \
+            librtmidi-dev libfluidsynth-dev libslirp-dev libsndfile1-dev libserialport-dev \
+            libvdeplug-dev libsndio-dev libusb-1.0-0-dev libvulkan-dev libevdev-dev \
+            libxkbcommon-x11-dev libx11-dev libwayland-dev libgl-dev libegl-dev \
+            qt6-base-dev qt6-base-private-dev qt6-tools-dev qt6-tools-dev-tools \
+            qt6-l10n-tools qt6-translations-l10n qt6-wayland
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Build
+        run: |
+          git config --global --add safe.directory "$PWD"
+          echo "${{ inputs.build }}" > .build-number
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DQT=ON \
+            -DDYNAREC=${{ matrix.dynarec }} -DLATEST_VERSIONS=OFF -DCMAKE_INSTALL_PREFIX=/usr
+          cmake --build build
+      - name: AppImage
+        run: |
+          DESTDIR="$PWD/AppDir" cmake --install build
+          rm -f AppDir/usr/bin/isp-server
+          base=https://github.com/linuxdeploy
+          wget -q "$base/linuxdeploy/releases/download/continuous/linuxdeploy-${{ matrix.arch }}.AppImage" \
+                  "$base/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-${{ matrix.arch }}.AppImage"
+          chmod +x linuxdeploy*.AppImage
+          export QMAKE=/usr/lib/qt6/bin/qmake
+          export EXTRA_PLATFORM_PLUGINS="libqwayland-egl.so;libqwayland-generic.so"
+          export OUTPUT="86Box-Next2-${{ matrix.name }}-$SLUG.AppImage"
+          ./linuxdeploy-${{ matrix.arch }}.AppImage --appdir AppDir \
+            --desktop-file AppDir/usr/share/applications/net.86box.86Box.desktop \
+            --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/net.86box.86Box.png \
+            --plugin qt --output appimage
+          ls -l *.AppImage
+      - uses: actions/upload-artifact@v5
+        with:
+          name: linux-${{ matrix.arch }}
+          path: 86Box-Next2-*.AppImage
+
+  macos:
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    steps:
+      - name: Dependencies
+        run: >-
+          brew install ninja pkgconf qt sdl3 rtmidi openal-soft fluidsynth libslirp
+          libserialport libsndfile vulkan-headers zstd libusb freetype libpng
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Build
+        run: |
+          echo "${{ inputs.build }}" > .build-number
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DQT=ON -DLATEST_VERSIONS=OFF \
+            -DOpenAL_ROOT="$(brew --prefix openal-soft)" \
+            -DLIBSERIALPORT_ROOT="$(brew --prefix libserialport)" \
+            -DCMAKE_INSTALL_PREFIX="$PWD/dist"
+          cmake --build build
+      - name: App bundle
+        run: |
+          cmake --install build
+          cd dist && ditto -c -k --keepParent 86Box-Next2.app "../app-${{ matrix.arch }}.zip"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: macos-app-${{ matrix.arch }}
+          path: app-${{ matrix.arch }}.zip
+
+  macos-universal:
+    name: macOS universal
+    needs: macos
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: macos-app-*
+          merge-multiple: true
+      - name: Merge the two bundles with lipo
+        run: |
+          mkdir arm64 x86_64
+          ditto -x -k app-arm64.zip arm64
+          ditto -x -k app-x86_64.zip x86_64
+          ditto arm64/86Box-Next2.app universal/86Box-Next2.app
+          a=arm64/86Box-Next2.app; x=x86_64/86Box-Next2.app; u=universal/86Box-Next2.app
+          # Files in both: Mach-O ones become fat, the rest stay arm64's.
+          (cd "$x" && find . -type f) | while IFS= read -r f; do
+            if [ -f "$a/$f" ]; then
+              if lipo -info "$a/$f" >/dev/null 2>&1 && lipo -info "$x/$f" >/dev/null 2>&1; then
+                lipo -create -output "$u/$f" "$a/$f" "$x/$f"
+              fi
+            else
+              mkdir -p "$(dirname "$u/$f")"; cp -p "$x/$f" "$u/$f"
+              echo "x86_64 only: $f"
+            fi
+          done
+          (cd "$a" && find . -type f) | while IFS= read -r f; do
+            [ -f "$x/$f" ] || echo "arm64 only: $f"
+          done
+          lipo -info "$u/Contents/MacOS/86Box-Next2"
+          codesign --force --deep -s - -o runtime --entitlements src/mac/entitlements.plist "$u"
+          codesign --verify --deep --strict "$u"
+          cp COPYING universal/
+          (cd universal && ditto -c -k --sequesterRsrc . "../86Box-Next2-macOS-x86_64+arm64-$SLUG.zip")
+      - uses: actions/upload-artifact@v5
+        with:
+          name: macos-universal
+          path: 86Box-Next2-macOS-*.zip
+
+  isp-server-macos:
+    name: isp-server macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - run: brew install cmake ninja pkgconf libslirp glib dylibbundler
+      - name: Build and package
+        working-directory: isp-server
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+          mkdir -p dist/isp-server
+          cp build/isp-server dist/isp-server/
+          dylibbundler -od -b -x dist/isp-server/isp-server -d dist/isp-server/libs -p @executable_path/libs/
+          codesign --force --deep -s - dist/isp-server/isp-server dist/isp-server/libs/*.dylib
+          cp COPYING dist/isp-server/
+          cd dist && zip -r "../../isp-server-macOS-${{ matrix.arch }}-$SLUG.zip" isp-server
+      - uses: actions/upload-artifact@v5
+        with:
+          name: isp-server-macos-${{ matrix.arch }}
+          path: isp-server-macOS-*.zip
+
+  isp-server-linux:
+    name: isp-server Linux (static)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build, static (x86_64 and arm64)
+        working-directory: isp-server
+        run: |
+          for arch in amd64:x86_64 arm64:arm64; do
+            docker buildx build --platform linux/${arch%%:*} --target linux-binary --output out-${arch%%:*} .
+            mkdir -p dist-${arch%%:*}/isp-server
+            cp out-${arch%%:*}/isp-server COPYING dist-${arch%%:*}/isp-server/
+            tar -C dist-${arch%%:*} -czf "../isp-server-Linux-${arch##*:}-$SLUG.tar.gz" isp-server
+          done
+      - uses: actions/upload-artifact@v5
+        with:
+          name: isp-server-linux
+          path: isp-server-Linux-*.tar.gz
+
+  release:
+    if: ${{ inputs.publish }}
+    needs: [windows, linux, macos-universal, isp-server-macos, isp-server-linux]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: release-${{ inputs.release }}
+        run: |
+          rm -f assets/app-*.zip
+          ls -l assets
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+              --title "86Box-Next2 Release ${{ inputs.release }}" --notes "Release ${{ inputs.release }}"
+          gh release upload "$TAG" assets/* --clobber --repo "$GITHUB_REPOSITORY"

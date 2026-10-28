@@ -589,7 +589,7 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   `codegen_new`). There is no `NEW_DYNAREC` option any more: old build trees configured with
   `NEW_DYNAREC=OFF` must be reconfigured. Releases up to 2.1.5.1 (Xeon3D/86Box-Next) used the old one.
 - Upstream's CI workflows and Dependabot are disabled/removed in this repo; only
-  `sync-upstream.yml` runs.
+  `sync-upstream.yml` runs, and `release.yml` when run by hand.
 - Build number in the title bar / About box: `.build-number` (git-ignored, repo root)
   holds the last successful build; `cmake/NextBuildNumber.cmake` bumps it on every
   successful link, so a no-change build still relinks with the next number.
@@ -600,10 +600,18 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   A release build: `NEXT_RELEASE=1 cmake --build build-static` -- the title bar reads
   "86Box-Next2 7.0 - Release 1" (the About box and the log keep the build number too). It is
   read from the environment on every build, so the next build without it is a plain build
-  again. Every release: `tools/make-release.sh N` builds Release N, keeps its zip in
-  `Releases-archive/` (repo root, git-ignored; one per release, never overwritten) and stages
-  exactly those exes in the rigs (`isp-server.exe` in `Latest`); then tag `release-N`, push it,
-  and `gh release create` with the zip (the script prints both).
+  again. Every release (since 3.1, all platforms upstream releases for): commit, tag `release-N`
+  and push it, then `gh workflow run release.yml --ref release-N -f release=N -f build=<.build-number>
+  -f publish=true` -- `.github/workflows/release.yml` builds Windows x64 and ARM64 (MSYS2 UCRT64 /
+  CLANGARM64, static Qt; ARM64 and Linux arm64 without dynarec, "NDR", as upstream), Linux x86_64
+  and arm64 AppImages (Debian trixie container, linuxdeploy + its Qt plugin; libOpenGL/libGLX
+  needs repointed at libGL.so.1), macOS x86_64 and arm64 with Homebrew merged into one universal
+  .app with lipo (ad-hoc signed with `src/mac/entitlements.plist`, macOS 15+), and isp-server for
+  each (Linux static via isp-server's Dockerfile, macOS with dylibbundler), all with build
+  number B+1, and uploads them to a draft release; add the notes and publish it. Then set
+  `.build-number` to B+1, keep the Windows x64 zip and the notes in `Releases-archive/` (repo
+  root, git-ignored; one per release, never overwritten) and stage its exes in the rigs
+  (`isp-server.exe` in `Latest`). `tools/make-release.sh N` still makes a local Windows-only release.
 
 ## Layout and the staged rig
 `F:\Claude\86Box-Next2` is this repository (the old 86Box-Next clone, with the old recompiler,

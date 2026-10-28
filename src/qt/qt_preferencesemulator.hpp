@@ -20,20 +20,12 @@ public:
     explicit PreferencesEmulator(QWidget *parent = nullptr);
     ~PreferencesEmulator();
 
-    int  changed();
     void save();
-
-private slots:
-    void on_pushButtonLanguage_released();
 
 private:
     Ui::PreferencesEmulator *ui;
 
-    class QCheckBox         *hideSoundCanvas = nullptr; /* 86Box-Next */
-
-    SettingsCompleter       *scLanguage;
-
-    friend class MainWindow;
+    class QCheckBox *hideSoundCanvas = nullptr; /* 86Box-Next */
 };
 
 #endif // QT_PREFERENCESEMULATOR_HPP

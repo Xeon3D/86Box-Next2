@@ -30,11 +30,7 @@ public:
         : QAbstractListModel(parent)
         , pages(pages)
     {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         fontHeight = QFontMetrics(qApp->font()).height();
-#else
-        fontHeight = QApplication::fontMetrics().height();
-#endif
     }
 
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
@@ -103,7 +99,7 @@ PagedDialog::pageStack() const
 void
 PagedDialog::showFirstPage()
 {
-    ui->listView->setCurrentIndex(ui->listView->model()->index(0, 0));
+    showPage(0);
 }
 
 void

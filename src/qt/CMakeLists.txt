@@ -161,6 +161,9 @@ add_library(ui STATIC
     qt_preferences.cpp
     qt_preferences.hpp
 
+    qt_preferencesgeneral.cpp
+    qt_preferencesgeneral.hpp
+    qt_preferencesgeneral.ui
     qt_preferencesemulator.cpp
     qt_preferencesemulator.hpp
     qt_preferencesemulator.ui
@@ -172,6 +175,9 @@ add_library(ui STATIC
     qt_preferenceskeybindings.ui
     qt_preferencesstatusbar.cpp
     qt_preferencesstatusbar.hpp
+    qt_preferencesmanager.cpp
+    qt_preferencesmanager.hpp
+    qt_preferencesmanager.ui
 
     qt_settings.cpp
     qt_settings.hpp
@@ -292,9 +298,6 @@ add_library(ui STATIC
     qt_vmmanager_detailsection.ui
     qt_vmmanager_listviewdelegate.hpp
     qt_vmmanager_listviewdelegate.cpp
-    qt_vmmanager_preferences.cpp
-    qt_vmmanager_preferences.hpp
-    qt_vmmanager_preferences.ui
     qt_vmmanager_main.hpp
     qt_vmmanager_main.cpp
     qt_vmmanager_main.ui
@@ -353,6 +356,7 @@ target_sources(ui PRIVATE qt_osd.cpp qt_osd.hpp qt_osd_raster.cpp qt_osd_raster.
 target_include_directories(ui PRIVATE ${OSD_DIR} ${OSD_DIR}/imgui)
 
 if(EMU_BUILD_NUM)
+    add_compile_definitions(UPDATE_CHECK)
     target_sources(ui PRIVATE
         qt_updatecheck.cpp
         qt_updatecheck.hpp
@@ -392,7 +396,8 @@ if(WIN32)
     enable_language(RC)
     target_sources(86Box PUBLIC 86Box-qt.rc)
     target_sources(plat PRIVATE win_dynld.c)
-    target_link_libraries(86Box dwmapi SetupAPI)
+    # winmm: qt_main.cpp sets the timer resolution with timeBeginPeriod; RtMidi used to bring it in.
+    target_link_libraries(86Box dwmapi SetupAPI winmm)
 
     # CMake 3.22 messed this up for clang/clang++
     # See https://gitlab.kitware.com/cmake/cmake/-/issues/22611

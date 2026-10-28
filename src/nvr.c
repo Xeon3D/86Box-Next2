@@ -171,13 +171,13 @@ nvr_init(nvr_t *nvr)
     /* Initialize the internal clock as needed. */
     memset(&intclk, 0x00, sizeof(intclk));
     fixed_year_host = 0;
-    if (time_sync & TIME_SYNC_ENABLED) {
+    /* Reset the internal clock to 1980/01/01 00:00. When time sync keeps the
+       guest's own date, this is the date until the RTC supplies its own. */
+    intclk.tm_mday = 1;
+    intclk.tm_mon  = 1;
+    intclk.tm_year = 1980;
+    if (time_sync & TIME_SYNC_ENABLED)
         nvr_time_sync();
-    } else {
-        /* Reset the internal clock to 1980/01/01 00:00. */
-        intclk.tm_mon  = 1;
-        intclk.tm_year = 1980;
-    }
 
     /* Set up our timer. */
     timer_add(&nvr->onesec_time, onesec_timer, nvr, 1);
@@ -333,12 +333,18 @@ nvr_time_sync(void)
         localtime_r(&now, &tm);
 #endif
 
-    /* Apply the configured fixed year or year offset. A fixed year is the
-       guest's year when the machine starts; a later sync (after a pause)
-       keeps the clock running from there, so a New Year's Eve session still
-       rolls over. Feb 29 is clamped to Feb 28 when the target year is not
-       a leap year. */
-    if (time_fixed_year != 0) {
+    /* Keeping the guest's own date takes precedence over the year settings,
+       and a fixed year over a year offset. A fixed year is the guest's year
+       when the machine starts; a later sync (after a pause) keeps the clock
+       running from there, so a New Year's Eve session still rolls over.
+       Feb 29 is clamped to Feb 28 when the target year is not a leap year. */
+    if (time_keep_date) {
+        tm.tm_mday = intclk.tm_mday;
+        tm.tm_mon  = intclk.tm_mon - 1;
+        tm.tm_year = intclk.tm_year - 1900;
+        tm.tm_wday = intclk.tm_wday;
+        offset     = 0;
+    } else if (time_fixed_year != 0) {
         if (fixed_year_host == 0)
             fixed_year_host = tm.tm_year + 1900;
         offset = time_fixed_year - fixed_year_host;
@@ -394,6 +400,25 @@ nvr_time_set(void *priv)
     intclk.tm_mday = tm->tm_mday;
     intclk.tm_mon  = (tm->tm_mon + 1);
     intclk.tm_year = (tm->tm_year + 1900);
+}
+
+/* Set only the internal clock's date, keeping its time of day. Used when time
+   sync keeps the guest's own date: the RTC start hooks pass the date read from
+   the chip. A date that is not valid (new or cleared NVR) is ignored. */
+void
+nvr_time_set_date(void *priv)
+{
+    const struct tm *tm   = (const struct tm *) priv;
+    const int        year = tm->tm_year + 1900;
+
+    if ((year < 1980) || (year > 2099) || (tm->tm_mon < 0) || (tm->tm_mon > 11) ||
+        (tm->tm_mday < 1) || (tm->tm_mday > nvr_get_days(tm->tm_mon + 1, year)))
+        return;
+
+    intclk.tm_wday = tm->tm_wday;
+    intclk.tm_mday = tm->tm_mday;
+    intclk.tm_mon  = (tm->tm_mon + 1);
+    intclk.tm_year = year;
 }
 
 /* Open or create a file in the NVR area. */

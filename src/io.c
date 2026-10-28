@@ -61,6 +61,7 @@ uint8_t initialized = 0;
 io_t   *io[NPORTS];
 io_t   *io_last[NPORTS];
 uint8_t io_turbo_map[NPORTS >> 3];
+int io_turbo_throttle = 0;
 
 /* Chipset claims (io_set_claim). Only a few ports are ever claimed, so they
    live in a small table, and a bitmap of claimed ports lets every other

@@ -16,8 +16,15 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   The exe is `86Box-Next2.exe` (`OUTPUT_NAME`; it was `86Box-Next.exe` up to 2026-10-25).
   The `/* 86Box-Next: ... */` comments marking the fork's changes keep the old name.
 - No global config: every setting lives in the machine's own `86box.cfg`
-  (`config.c`); the optional VM Manager's `vmm.ini` sits next to it.
-- VM Manager is optional and off by default (Preferences > Emulator).
+  (`config.c`; `global_cfg_path` is `cfg_path`, so upstream's `config_save_global_setting()`
+  rewrites one key of that file); the optional VM Manager's `vmm.ini` (its machine list) sits
+  next to it. Upstream's global sections share the file: `[General]` (language, colour scheme)
+  shares the machine's own `[General]` -- the keys differ -- and `[Manager]` holds the manager's
+  preferences (`vmm_discord_presence`, `vmm_update_check`...; Discord was `[Emulator]
+  discord_presence` before, read from there once via `moved_setting_section()`).
+- VM Manager is optional and off by default (Preferences > Emulator, "Disable the VM Manager";
+  ours, not upstream's). Preferences pages: upstream's General, Emulator, Input, Key bindings, our
+  Status bar, and upstream's VM Manager page under the manager.
 - Arcade I/O boards (`src/device/io_board.c`, one per machine, Settings > Other
   peripherals): funworld Photo Play (PeepeeBox `funworld_io.c`) and Merit
   Megatouch XL/MAXX (MegaPPBox `merit_io.c`; the MAXX's PC Card slots are the
@@ -400,10 +407,11 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   from the ROM images' strings plus its hand-checked OVERRIDES; rerun it when upstream adds
   machines (it names any it cannot place; those show "Unknown").
 - Settings > Machine > Time & Date tab (`time_date.ico`, after Performance): upstream's time
-  synchronization and years offset moved there from the Machine tab, plus a fixed year
-  (`time_fixed_year` in `[Machine]`, 0 = none; wins over `time_offset_years`). `nvr_time_sync()`
-  turns it into an offset from the host's year at the hard reset (`fixed_year_host`), so syncs
-  after a pause keep the clock running. Only applies while time sync is on.
+  synchronization group (since 2026-10-25 upstream has a fixed year and a keep-the-guest's-date
+  mode too: `time_fixed_year`, `time_keep_date` in `[Machine]`) sits there instead of on the
+  Machine tab; the code is upstream's but for one difference in `nvr_time_sync()`: a fixed year
+  is an offset from the host's year at the hard reset (`fixed_year_host`), so syncs after a pause
+  keep the clock running (upstream pins the year at every sync, so New Year's Eve goes back).
 - Settings layout (2026-10-28): the page list ends Other peripherals, Modems, Integration ("Ports
   (COM & LPT)" is "Ports"). Other peripherals' tabs are USB (up to four cards, `usbn_card_get/set()`,
   config `usb_card`, `usb_card_2`-`_4`, ports `card_1`, `card2_1`...; offered up to the free PCI slots of

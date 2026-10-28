@@ -3660,6 +3660,53 @@ const machine_t machines[] = {
         .net_device               = NULL,
         .aliases                  = { "" }
     },
+    {
+        .name              = "[80186] Tandy 2000",
+        .internal_name     = "tandy2000",
+        .type              = MACHINE_TYPE_186,
+        .chipset           = MACHINE_CHIPSET_PROPRIETARY,
+        .init              = machine_tandy2000_init,
+        .p1_handler        = NULL,
+        .gpio_handler      = NULL,
+        .available_flag    = MACHINE_AVAILABLE,
+        .gpio_acpi_handler = NULL,
+        .cpu               = {
+            .package     = CPU_PKG_186,
+            .block       = CPU_BLOCK_NONE,
+            .min_bus     = 8000000,
+            .max_bus     = 0,
+            .min_voltage = 0,
+            .max_voltage = 0,
+            .min_multi   = 0,
+            .max_multi   = 0
+        },
+        .bus_flags = MACHINE_PC,
+        .flags     = MACHINE_VIDEO_FIXED | MACHINE_KEYBOARD | MACHINE_MOUSE | MACHINE_MFM,
+        .ram       = {
+            .min  = 128,
+            .max  = 768,
+            .step = 128
+        },
+        .nvrmask                  = 15,
+        .jumpered_ecp_dma         = 0,
+        .default_jumpered_ecp_dma = -1,
+        .kbc_device               = NULL,
+        .kbc_params               = 0x00000000,
+        .nvr_device               = NULL,
+        .nvr_params               = 0x00000000,
+        .sio_device               = NULL,
+        .sio_params               = 0x00000000,
+        .kbc_p1                   = 0xff,
+        .gpio                     = 0xffffffff,
+        .gpio_acpi                = 0xffffffff,
+        .device                   = &tandy_2000_device,
+        .kbd_device               = NULL,
+        .fdc_device               = NULL,
+        .vid_device               = &tandy_2000_video_device,
+        .snd_device               = NULL,
+        .net_device               = NULL,
+        .aliases                  = { "Tandy 2000 HD", "" }
+    },
 
     /* 286 AT machines */
     /* Has IBM AT KBC firmware. */
@@ -12098,7 +12145,7 @@ const machine_t machines[] = {
             .max_multi   = 0
         },
         .bus_flags = MACHINE_PS2_VLB,
-        .flags     = MACHINE_IDE, /* Machine has internal video: Western Digital WD90C33-ZZ (not yet implemented) */
+        .flags     = MACHINE_IDE | MACHINE_VIDEO,
         .ram       = {
         /* In theory, this machine should support up to 128 MB RAM. In practice, likely 
            due to a BIOS bug, it does not detect more than 64 MB at all. */
@@ -12121,7 +12168,7 @@ const machine_t machines[] = {
         .device                   = NULL,
         .kbd_device               = NULL,
         .fdc_device               = NULL,
-        .vid_device               = NULL,
+        .vid_device               = &paradise_wd90c33_onboard_device,
         .snd_device               = NULL,
         .net_device               = NULL,
         .aliases                  = { "TriGem Olympia-K", "" }
@@ -22117,7 +22164,7 @@ const machine_t machines[] = {
         .sio_params               = 0x00000000,
         .kbc_p1                   = 0x00000cf0,
         .gpio                     = 0xffffffff,
-        .gpio_acpi                = 0xffffffff,
+        .gpio_acpi                = 0x0003ffff,
         .device                   = &in530_device,
         .kbd_device               = NULL,
         .fdc_device               = NULL,
@@ -22616,6 +22663,57 @@ const machine_t machines[] = {
         .aliases                  = { "eMachines eTower 3__k", "" }
     },
 
+    /* Apollo VPX */
+    /* Has the VIA VT82C586B southbridge with on-chip KBC identical to the VIA
+       VT82C42N. */
+    {
+        .name              = "[VIA VPX] Zida TX100",
+        .internal_name     = "tx100",
+        .type              = MACHINE_TYPE_SOCKETS7,
+        .chipset           = MACHINE_CHIPSET_VIA_APOLLO_VPX,
+        .init              = machine_at_tx100_init,
+        .p1_handler        = machine_generic_p1_handler,
+        .gpio_handler      = NULL,
+        .available_flag    = MACHINE_AVAILABLE,
+        .gpio_acpi_handler = NULL,
+        .cpu               = {
+            .package     = CPU_PKG_SOCKET5_7,
+            .block       = CPU_BLOCK_NONE,
+            .min_bus     = 60000000,
+            .max_bus     = 100000000,
+            .min_voltage = 1800,
+            .max_voltage = 3200,
+            .min_multi   = 1.5,
+            .max_multi   = 6.0
+        },
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_USB, /* Machine has internal sound: Crystal CX4235 (CS4235 causes POST hang, perhaps caused by unknown codec?) */
+        .ram       = {
+            .min  = 8192,
+            .max  = 524288,
+            .step = 8192
+        },
+        .nvrmask                  = 127,
+        .jumpered_ecp_dma         = 0,
+        .default_jumpered_ecp_dma = -1,
+        .kbc_device               = NULL,
+        .kbc_params               = 0x00000000,
+        .nvr_device               = NULL,
+        .nvr_params               = 0x00000000,
+        .sio_device               = NULL,
+        .sio_params               = 0x00000000,
+        .kbc_p1                   = 0x00000cf0,
+        .gpio                     = 0xffffffff,
+        .gpio_acpi                = 0xffffffff,
+        .device                   = &tx100_device,
+        .kbd_device               = NULL,
+        .fdc_device               = NULL,
+        .vid_device               = NULL,
+        .snd_device               = NULL,
+        .net_device               = NULL,
+        .aliases                  = { "" }
+    },
+
     /* Socket 8 machines */
     /* 450KX */
     /* This has an AMIKey-2, which is type 'H'. */
@@ -22762,57 +22860,6 @@ const machine_t machines[] = {
         .gpio                     = 0xffffffff,
         .gpio_acpi                = 0xffffffff,
         .device                   = NULL,
-        .kbd_device               = NULL,
-        .fdc_device               = NULL,
-        .vid_device               = NULL,
-        .snd_device               = NULL,
-        .net_device               = NULL,
-        .ide_device               = &ide_cmd646_device,
-        .aliases                  = { "" }
-    },
-    /* The P6RP4 with the 82379AB SIO.A and its I/O APIC.
-       This has an AMIKey-2, which is type 'H'. */
-    {
-        .name              = "[i450GX] ASUS P/I-P6RSP4",
-        .internal_name     = "p6rsp4",
-        .type              = MACHINE_TYPE_SOCKET8,
-        .chipset           = MACHINE_CHIPSET_INTEL_450GX,
-        .init              = machine_at_p6rsp4_init,
-        .p1_handler        = machine_generic_p1_handler,
-        .gpio_handler      = NULL,
-        .available_flag    = MACHINE_AVAILABLE,
-        .gpio_acpi_handler = NULL,
-        .cpu               = {
-            .package     = CPU_PKG_SOCKET8,
-            .block       = CPU_BLOCK_NONE,
-            .min_bus     = 60000000,
-            .max_bus     = 66666667,
-            .min_voltage = 2100,
-            .max_voltage = 3500,
-            .min_multi   = 1.5,
-            .max_multi   = 8.0
-        },
-        .bus_flags = MACHINE_PS2_PCI, /* Machine has AMB */
-        .flags     = MACHINE_IDE_DUAL,
-        .ram       = {
-            .min  = 8192,
-            .max  = 524288,
-            .step = 8192
-        },
-        .nvrmask                  = 127,
-        .jumpered_ecp_dma         = MACHINE_DMA_1,
-        .default_jumpered_ecp_dma = 1,
-        .kbc_device               = &kbc_at_device,
-        .kbc_params               = KBC_VEN_AMI | 0x00004800,
-        .nvr_device               = &nvr_at_device,
-        .nvr_params               = NVR_P6RP4,
-        .sio_device               = NULL,
-        .sio_params               = 0x00000000,
-        .kbc_p1                   = 0x00000cf0,
-        .gpio                     = 0xffffffff,
-        .gpio_acpi                = 0xffffffff,
-        /* The board's Disable APIC option (ioapic_validated_up_device). */
-        .device                   = &validated_up_apic_board_device,
         .kbd_device               = NULL,
         .fdc_device               = NULL,
         .vid_device               = NULL,
@@ -26895,6 +26942,55 @@ const machine_t machines[] = {
         .net_device               = NULL,
         .aliases                  = { "" }
     },
+    /* Has the VIA VT82C686A southbridge with on-chip KBC identical to the VIA
+       VT82C42N. */
+    {
+        .name              = "[VIA Apollo Pro 133A] MSI MS-6309",
+        .internal_name     = "cairo5",
+        .type              = MACHINE_TYPE_SOCKET370,
+        .chipset           = MACHINE_CHIPSET_VIA_APOLLO_PRO_133A,
+        .init              = machine_at_cairo5_init,
+        .p1_handler        = machine_generic_p1_handler,
+        .gpio_handler      = NULL,
+        .available_flag    = MACHINE_AVAILABLE,
+        .gpio_acpi_handler = NULL,
+        .cpu               = {
+            .package     = CPU_PKG_SOCKET370,
+            .block       = CPU_BLOCK_NONE,
+            .min_bus     = 66666667,
+            .max_bus     = 150000000,
+            .min_voltage = 1300,
+            .max_voltage = 3500,
+            .min_multi   = MACHINE_MULTIPLIER_FIXED,
+            .max_multi   = MACHINE_MULTIPLIER_FIXED
+        },
+        .bus_flags = MACHINE_PS2_A97 | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_ACPI | MACHINE_USB,
+        .ram       = {
+            .min  = 16384,
+            .max  = 3145728,
+            .step = 8192
+        },
+        .nvrmask                  = 255,
+        .jumpered_ecp_dma         = 0,
+        .default_jumpered_ecp_dma = -1,
+        .kbc_device               = NULL,
+        .kbc_params               = 0x00000000,
+        .nvr_device               = NULL,
+        .nvr_params               = 0x00000000,
+        .sio_device               = NULL,
+        .sio_params               = 0x00000000,
+        .kbc_p1                   = 0x00000cf0,
+        .gpio                     = 0xffffffff,
+        .gpio_acpi                = 0xffffffff,
+        .device                   = &cairo5_device,
+        .kbd_device               = NULL,
+        .fdc_device               = NULL,
+        .vid_device               = NULL,
+        .snd_device               = NULL,
+        .net_device               = NULL,
+        .aliases                  = { "Samsung 694A-25A", "Samsung CAIRO-5", "" }
+    },
     /* Has the VIA VT82C686B southbridge with on-chip KBC identical to the VIA
        VT82C42N. */
     {
@@ -26993,56 +27089,6 @@ const machine_t machines[] = {
         .snd_device               = &vt1611a_device,
         .net_device               = NULL,
         .aliases                  = { "PC Chips M790", "ECS D6VAA", "PC Ware V694D", "Totem TM-VA370EB", "" }
-    },
-    /* Has the VIA VT82C686B southbridge with on-chip KBC identical to the VIA
-       VT82C42N. */
-    {
-        .name              = "[VIA Apollo Pro 133A] Samsung CAIRO-5",
-        .internal_name     = "cairo5",
-        .type              = MACHINE_TYPE_SOCKET370,
-        .chipset           = MACHINE_CHIPSET_VIA_APOLLO_PRO_133A,
-        .init              = machine_at_cairo5_init,
-        .p1_handler        = machine_generic_p1_handler,
-        .gpio_handler      = NULL,
-        .available_flag    = MACHINE_AVAILABLE,
-        .gpio_acpi_handler = NULL,
-        .cpu               = {
-            .package     = CPU_PKG_SOCKET370,
-            .block       = CPU_BLOCK_NONE,
-            .min_bus     = 66666667,
-            .max_bus     = 150000000,
-            .min_voltage = 1300,
-            .max_voltage = 3500,
-            .min_multi   = MACHINE_MULTIPLIER_FIXED,
-            .max_multi   = MACHINE_MULTIPLIER_FIXED
-        },
-        .bus_flags = MACHINE_PS2_A97 | MACHINE_BUS_USB,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_ACPI | MACHINE_USB,
-        .ram       = {
-            .min  = 16384,
-            .max  = 3145728,
-            .step = 8192
-        },
-        .nvrmask                  = 255,
-        .jumpered_ecp_dma         = 0,
-        .default_jumpered_ecp_dma = -1,
-        .kbc_device               = NULL,
-        .kbc_params               = 0x00000000,
-        .nvr_device               = NULL,
-        .nvr_params               = 0x00000000,
-        .sio_device               = NULL,
-        .sio_params               = 0x00000000,
-        .kbc_p1                   = 0x00000cf0,
-        .gpio                     = 0xffffffff,
-        .gpio_acpi                = 0xffffffff,
-        /* The board's Disable APIC option (ioapic_validated_up_device). */
-        .device                   = &validated_up_apic_board_device,
-        .kbd_device               = NULL,
-        .fdc_device               = NULL,
-        .vid_device               = NULL,
-        .snd_device               = NULL,
-        .net_device               = NULL,
-        .aliases                  = { "MSI MS-6309", "" }
     },
 
     /* Miscellaneous/Fake/Hypervisor machines */

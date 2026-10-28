@@ -5,16 +5,24 @@
 
 #include "qt_pageddialog.hpp"
 
+class PreferencesGeneral;
 class PreferencesEmulator;
 class PreferencesInput;
 class PreferencesKeyBindings;
 class PreferencesStatusBar;
+class PreferencesManager;
 
+/* The preferences of the emulator and the VM manager, saved to the global
+   configuration. The pages only save the preferences; applying them is up
+   to the caller. */
 class Preferences : public PagedDialog {
     Q_OBJECT
 
 public:
-    explicit Preferences(QWidget *parent = nullptr);
+    /* The manager page is shown in the built-in VM manager, and in a machine
+       it supervises; while machines are running, it cannot change the system
+       directory. */
+    Preferences(bool showManager, bool machinesRunning, QWidget *parent = nullptr);
     ~Preferences();
     void save();
 
@@ -52,10 +60,12 @@ protected slots:
 private:
     static bool       loadQtTranslations(const QString name);
 
+    PreferencesGeneral         *general;
     PreferencesEmulator        *emulator;
     PreferencesInput           *input;
     PreferencesKeyBindings     *key_bindings;
     PreferencesStatusBar       *status_bar; /* 86Box-Next */
+    PreferencesManager         *manager = nullptr;
 };
 
 #endif // QT_PREFERENCES_HPP

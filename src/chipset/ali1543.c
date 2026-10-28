@@ -32,6 +32,7 @@
 #include <86box/hdc_ide_sff8038i.h>
 #include <86box/keyboard.h>
 #include <86box/mem.h>
+#include <86box/nmi.h>
 #include <86box/nvr.h>
 #include <86box/pci.h>
 #include <86box/pic.h>
@@ -1542,7 +1543,8 @@ ali7101_read(int func, int addr, UNUSED(int len), void *priv)
                         ret = 0x80;
                     break;
                 case 0xbc:
-                    ret = inb(0x70);
+                    /* SRIO70: shadow of the last write to port 70h, NMI disable bit included. */
+                    ret = (nvr_get_index(dev->nvr, 0) & 0x7f) | (nmi_mask ? 0x00 : 0x80);
                     break;
             }
 

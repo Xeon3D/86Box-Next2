@@ -443,10 +443,10 @@ illegal_chars:
         emit selectionOrStateChanged((this->proxy_model->rowCount(QModelIndex()) > 0) ? selected_sysconfig : nullptr);
     });
 
-#if EMU_BUILD_NUM != 0
+#ifdef UPDATE_CHECK
     // Start update check after a slight delay
     QTimer::singleShot(1000, this, [this] {
-        if (updateCheck)
+        if (vmm_update_check)
             backgroundUpdateCheckStart();
     });
 #endif
@@ -639,10 +639,7 @@ VMManagerMain::loadSettings()
 {
     const auto config        = new VMManagerConfig(VMManagerConfig::ConfigType::General);
     const auto lastSelection = config->getStringValue("last_selection");
-#if EMU_BUILD_NUM != 0
-    updateCheck = config->getStringValue("update_check").toInt();
-#endif
-    regexSearch = config->getStringValue("regex_search").toInt();
+    regexSearch = vmm_regex_search;
 
     const auto matches = ui->listView->model()->match(vm_model->index(0, 0), VMManagerModel::Roles::ConfigName, QVariant::fromValue(lastSelection));
     if (!matches.empty()) {
@@ -781,8 +778,8 @@ VMManagerMain::addNewSystem(const QString &name, const QString &dir, const QStri
 void
 VMManagerMain::deleteSystem(VMManagerSystem *sysconfig)
 {
-    auto config = new VMManagerConfig(VMManagerConfig::ConfigType::General);
-    int trash = config->getStringValue("delete_to_trash").toInt();
+    const VMManagerConfig config(VMManagerConfig::ConfigType::General);
+    int trash = vmm_delete_to_trash;
     QString msgboxText = tr("Do you really want to delete the virtual machine \"%1\" and all its files?").arg(sysconfig->displayName);
     if (!trash)
         msgboxText.append(QStringLiteral(" ") % tr("This action cannot be undone!"));
@@ -803,7 +800,7 @@ VMManagerMain::deleteSystem(VMManagerSystem *sysconfig)
             QMessageBox::critical(this, tr("Remove directory failed"), tr("Some files in the machine's directory were unable to be deleted. Please delete them manually."));
             return;
         }
-        config->remove(sysconfig->uuid);
+        config.remove(sysconfig->uuid);
         vm_model->removeConfigFromModel(sysconfig);
         delete sysconfig;
 
@@ -899,9 +896,8 @@ void
 VMManagerMain::onPreferencesUpdated()
 {
     // Only reload values that we care about
-    const auto config         = new VMManagerConfig(VMManagerConfig::ConfigType::General);
     const auto oldRegexSearch = regexSearch;
-    regexSearch               = config->getStringValue("regex_search").toInt();
+    regexSearch               = vmm_regex_search;
     if (oldRegexSearch != regexSearch)
         ui->searchBar->clear();
 
@@ -947,7 +943,7 @@ VMManagerMain::getActiveMachineCount()
     return vm_model->getActiveMachineCount();
 }
 
-#if EMU_BUILD_NUM != 0
+#ifdef UPDATE_CHECK
 void
 VMManagerMain::backgroundUpdateCheckStart() const
 {

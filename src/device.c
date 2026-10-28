@@ -242,7 +242,7 @@ device_set_context(device_context_t *ctx, const device_t *dev, int inst)
         { .old = "Cirrus Logic GD5428 (MCA) (IBM SVGA Adapter/A)", .new = "Cirrus Logic GD5428 (MCA) (US/EMEA)" },
         { .old = "Cirrus Logic GD5426 (MCA) (Reply Video Adapter)", .new = "Cirrus Logic GD5426 (MCA)" },
         { .old = "3dfx Voodoo3 2000 (On-Board 8MB SGRAM)", .new = "3dfx Voodoo3 2000 (On-Board)" },
-        { .old = "SiS 530/620 (6306) Onboard AGP", .new = "SiS 6306 (5598/530/620) On-Board AGP" },
+        { .old = "SiS 6306 (5598/530/620) On-Board AGP", .new = "SiS 6306 (530/620) On-Board AGP" },
         { .old = "Gravis/Synergy Vipermax", .new = "Synergy ViperMAX" },
         { .old = "Colorplus", .new = "Plantronics Colorplus" },
         { .old = "Creative Sound Blaster PCI 128 (ES1373)", .new = "Sound Blaster PCI 128 (ES1373)" },
@@ -608,11 +608,13 @@ device_close_all(void)
     }
 }
 
+/* Close the devices that have all of match_flags and were added as instance inst, or as any instance if inst is -1. */
 void
-device_close_by_flags(uint32_t match_flags)
+device_close_by_flags_inst(uint32_t match_flags, int inst)
 {
     for (int16_t c = (DEVICE_MAX - 1); c >= 0; c--) {
-        if ((devices[c] != NULL) && ((devices[c]->flags & match_flags) == match_flags)) {
+        if ((devices[c] != NULL) && ((devices[c]->flags & match_flags) == match_flags) &&
+            ((inst == -1) || (device_state[c].inst == inst))) {
 #ifdef ENABLE_DEVICE_LOG
             if (devices[c]->name)
                 device_log("Closing device: \"%s\"...\n", devices[c]->name);
@@ -653,6 +655,12 @@ device_close_priv(void *priv)
             return;
         }
     }
+}
+
+void
+device_close_by_flags(uint32_t match_flags)
+{
+    device_close_by_flags_inst(match_flags, -1);
 }
 
 void

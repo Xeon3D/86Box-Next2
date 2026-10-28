@@ -33,7 +33,7 @@ protected:
     QStackedWidget *pageStack() const;
     /* Selects the first page, once the dialog has added its pages. */
     void showFirstPage();
-    /* Selects the page at a list index (86Box-Next: Ports' modem Configure). */
+    /* Selects the page at a list index, as a click on it in the list does. */
     void showPage(int index);
     /* Called before the page at a list index is shown. */
     virtual void aboutToShowPage(int index);

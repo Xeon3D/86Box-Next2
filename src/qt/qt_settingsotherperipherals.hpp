@@ -7,8 +7,10 @@ extern "C" {
 #include <86box/usb_next.h>
 }
 #ifdef USE_VFIO
+#    include <tuple>
+
+#    include <QHash>
 #    include <QList>
-#    include <QPair>
 #    include <QString>
 #endif
 
@@ -19,6 +21,7 @@ class SettingsOtherPeripherals;
 }
 
 #ifdef USE_VFIO
+class QProcess;
 class VFIODeviceModel;
 #endif
 
@@ -116,18 +119,22 @@ private:
     SettingsCompleter            *scIsaRomCard[4];
 
 #ifdef USE_VFIO
-    /* Location and custom ROM file of each device to pass through. */
-    using VFIODeviceList = QList<QPair<QString, QString>>;
+    /* Location, custom ROM enabled and custom ROM file of each device to pass through. */
+    using VFIODeviceList = QList<std::tuple<QString, bool, QString>>;
 
     void           vfioEnumerate();
     void           vfioRestore();
+    void           vfioRequestNames();
+    void           vfioSetNames(const QHash<QString, QString> &names);
     void           vfioUpdateControls();
     VFIODeviceList vfioSelectedDevices() const;
     int            vfioChanged() const;
     void           vfioSave();
 
     VFIODeviceModel              *vfioModel;
-    bool                          vfioUpdating = false;
+    QProcess                     *vfioLspci          = nullptr;
+    bool                          vfioUpdating       = false;
+    bool                          vfioNamesRequested = false;
 #endif
 };
 

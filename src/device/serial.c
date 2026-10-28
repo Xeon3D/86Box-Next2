@@ -458,7 +458,8 @@ serial_reset_fifo(serial_t *dev)
     fifo_reset_evt(dev->xmit_fifo);
     fifo_reset_evt(dev->rcvr_fifo);
 
-    serial_update_ints(dev);
+    /* Nothing left in the receiver FIFO to time out. */
+    serial_clear_timeout(dev);
 }
 
 void
@@ -635,6 +636,9 @@ serial_write(uint16_t addr, uint8_t val, void *priv)
                         fifo_reset_evt(dev->rcvr_fifo);
                     else
                         fifo_reset(dev->rcvr_fifo);
+                    /* The 16550 only signals a character timeout while
+                       the receiver FIFO holds data. */
+                    serial_clear_timeout(dev);
                 }
                 if (val & 0x04) {
                     if (dev->fifo_enabled)
@@ -1075,7 +1079,13 @@ serial_devices_close(int hotplug)
 void
 serial_devices_reset(void)
 {
-    device_close_by_flags(DEVICE_COM | DEVICE_HOTPLUG_OUT);
+    /* Only close the dropdown devices of the ports that serial_devices_close() and serial_devices_init()
+       will go through. A port where another device also asked for the port, such as a serial mouse,
+       is left alone by them, and closing its device would leave the port calling into it. */
+    for (uint8_t i = 0; i < SERIAL_MAX; i++) {
+        if (com_ports[i].hotunplug < CHAR_PORT_NOHOTUNPLUG)
+            device_close_by_flags_inst(DEVICE_COM | DEVICE_HOTPLUG_OUT, i + 1);
+    }
 
     serial_devices_close(1);
 

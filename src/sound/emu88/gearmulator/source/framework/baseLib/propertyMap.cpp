@@ -1,6 +1,7 @@
 #include "propertyMap.h"
 
 #include <cmath>
+#include <cstdlib>
 
 namespace baseLib
 {

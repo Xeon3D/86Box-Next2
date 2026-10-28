@@ -577,7 +577,10 @@ macro(install_qt_plugin _qt_plugin_name _runtime_plugins_var _prefix)
         get_filename_component(_qt_plugin_type "${_qt_plugin_path}" PATH)
         get_filename_component(_qt_plugin_type "${_qt_plugin_type}" NAME)
         set(_qt_plugin_dest "${_prefix}/PlugIns/${_qt_plugin_type}")
-        install(FILES "${_qt_plugin_path}" DESTINATION "${_qt_plugin_dest}")
+        # 86Box-Next: Homebrew's plugins are relative symlinks into its Cellar, and
+        # install(FILES) copies a symlink as one -- install the file it points to.
+        file(REAL_PATH "${_qt_plugin_path}" _qt_plugin_real)
+        install(FILES "${_qt_plugin_real}" DESTINATION "${_qt_plugin_dest}" RENAME "${_qt_plugin_file}")
         list(APPEND ${_runtime_plugins_var} "\${CMAKE_INSTALL_PREFIX_ABSOLUTE}/${_qt_plugin_dest}/${_qt_plugin_file}")
     else()
         message(FATAL_ERROR "QT plugin ${_qt_plugin_name} not found")

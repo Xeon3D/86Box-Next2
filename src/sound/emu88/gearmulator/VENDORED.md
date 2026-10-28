@@ -34,6 +34,8 @@ Local changes, for MinGW-w64 GCC (gearmulator builds with MSVC on Windows):
 * `framework/baseLib/filesystem.cpp`, `framework/synthLib/os.cpp`: `<shlobj.h>`
   where MSVC has `<shlobj_core.h>`.
 * `framework/synthLib/deviceException.cpp`: `#include <cstdint>`.
+* `cpu/dsp56300/source/dsp56kBase/conditionvariable.h`: `#include <algorithm>`
+  (`std::max`; libc++, as MSYS2's Clang uses, does not bring it in).
 
 `framework/synthLib/buildconfig.h` is the file gearmulator's CMake generates from
 `buildconfig.h.in` (demo mode off). The build is `../CMakeLists.txt`.

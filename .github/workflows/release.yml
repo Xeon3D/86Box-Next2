@@ -75,7 +75,7 @@ jobs:
           echo "${{ inputs.build }}" > .build-number
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DQT=ON -DSTATIC_BUILD=ON \
             -DDYNAREC=${{ matrix.dynarec }} -DLATEST_VERSIONS=OFF
-          cmake --build build
+          cmake --build build -- -k 0
       - name: Package
         run: |
           d=86Box-Next2-${{ matrix.name }}-$SLUG
@@ -128,7 +128,7 @@ jobs:
           echo "${{ inputs.build }}" > .build-number
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DQT=ON \
             -DDYNAREC=${{ matrix.dynarec }} -DLATEST_VERSIONS=OFF -DCMAKE_INSTALL_PREFIX=/usr
-          cmake --build build
+          cmake --build build -- -k 0
       - name: AppImage
         run: |
           DESTDIR="$PWD/AppDir" cmake --install build
@@ -176,7 +176,7 @@ jobs:
             -DOpenAL_ROOT="$(brew --prefix openal-soft)" \
             -DLIBSERIALPORT_ROOT="$(brew --prefix libserialport)" \
             -DCMAKE_INSTALL_PREFIX="$PWD/dist"
-          cmake --build build
+          cmake --build build -- -k 0
       - name: App bundle
         run: |
           cmake --install build
@@ -247,7 +247,7 @@ jobs:
         working-directory: isp-server
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build
+          cmake --build build -- -k 0
           mkdir -p dist/isp-server
           cp build/isp-server dist/isp-server/
           dylibbundler -od -b -x dist/isp-server/isp-server -d dist/isp-server/libs -p @executable_path/libs/

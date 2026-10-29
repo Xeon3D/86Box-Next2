@@ -35,9 +35,11 @@ extern int  dolphin_io_present(void);
 
 /* Program U9 and the Abyss key as the game's factory flow would (see
    dolphin_keygen.h), on the board's next tick, and save them; the game reads
-   them when it starts. 0 if queued, -1 bad serial, -2 no board, -3 busy. */
+   them when it starts. With no board running, writes the chip files of the
+   machine's nvr folder instead. 0 if done, -1 bad serial, -2 file not
+   written, -3 busy. */
 extern int dolphin_io_write_keys(uint64_t serial, unsigned country, unsigned major, unsigned minor);
-/* Serial number and country of the fitted U9; -1 if blank or no board. */
+/* Serial number and country of the fitted U9 (or its file); -1 if blank. */
 extern int dolphin_io_read_keys(uint64_t *serial, unsigned *country);
 
 #ifdef EMU_DEVICE_H

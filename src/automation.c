@@ -2072,8 +2072,10 @@ handle_request(char *line)
 
         if (sscanf(argv[4], "%u.%u", &major, &minor) < 1)
             respond_error("version must be major.minor");
-        else if ((ret = dolphin_io_write_keys(strtoull(argv[2], NULL, 10), (unsigned) atoi(argv[3]), major, minor)) == -2)
+        else if (!dolphin_io_present())
             respond_error("no Midway Dolphin I/O board fitted");
+        else if ((ret = dolphin_io_write_keys(strtoull(argv[2], NULL, 10), (unsigned) atoi(argv[3]), major, minor)) == -2)
+            respond_error("chip files not written");
         else if (ret)
             respond_error("serial too long or a write still pending");
         else

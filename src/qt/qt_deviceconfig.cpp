@@ -49,6 +49,7 @@ extern "C" {
 #include <86box/thread.h>
 #include <86box/network.h>
 #include <86box/scsi.h>
+#include <86box/dolphin_io.h>
 }
 
 #include "qt_filefield.hpp"
@@ -57,6 +58,7 @@ extern "C" {
 #include "qt_preferences.hpp"
 #include "qt_settingsnetwork.hpp"
 #include "qt_settingsstoragecontrollers.hpp"
+#include "qt_dolphin_keydialog.hpp"
 #ifdef Q_OS_WINDOWS
 #    define WIN32_LEAN_AND_MEAN
 #    include <windows.h>
@@ -573,6 +575,18 @@ DeviceConfig::ConfigureDevice(const _device_ *device, int instance, Settings *se
     const _device_config_ *config = device->config;
 
     dc.ProcessConfig(&device_context, config, false);
+
+    /* The TouchMaster key generator belongs to the Dolphin board. */
+    if (device == &dolphin_io_device) {
+        auto *keys = new QPushButton(tr("&Key Generator..."));
+        keys->setToolTip(tr("Program the board's U9 chip and Abyss key for a serial number and country"));
+        QObject::connect(keys, &QPushButton::clicked, &dc, [&dc]() {
+            DolphinKeyDialog dialog(&dc);
+
+            dialog.exec();
+        });
+        dc.ui->formLayout->addRow(tr("TouchMaster keys:"), keys);
+    }
 
     dc.setFixedSize(dc.minimumSizeHint());
 

@@ -375,12 +375,22 @@ dolphin_io_write_keys(uint64_t serial, unsigned country, unsigned major, unsigne
     uint32_t now  = (uint32_t) time(NULL);
     uint32_t seed = now ^ (plat_get_ticks() * 2654435761U); /* srandomdev() */
 
-    if (!dol_inst)
-        return -2;
     if (keys_pending)
         return -3;
     if (dolphin_keygen(keys_img[0], keys_img[1], serial, country, major, minor, now, seed))
         return -1;
+    if (!dol_inst) {
+        /* not running (the machine's settings): straight to the chip files */
+        for (int n = 0; n < 2; n++) {
+            FILE *f = nvr_fopen(chip_files[n], "wb");
+
+            if (!f)
+                return -2;
+            fwrite(keys_img[n], 1, AT88_SIZE + 1, f);
+            fclose(f);
+        }
+        return 0;
+    }
     keys_pending = 1;
     return 0;
 }
@@ -390,10 +400,22 @@ dolphin_io_read_keys(uint64_t *serial, unsigned *country)
 {
     uint8_t img[AT88_SIZE + 1];
 
-    if (!dol_inst)
-        return -1;
-    memcpy(img, dol_inst->chip[0].mem, AT88_SIZE);
-    img[AT88_SIZE] = dol_inst->chip[0].fuses;
+    if (keys_pending)
+        memcpy(img, keys_img[0], AT88_SIZE + 1);
+    else if (dol_inst) {
+        memcpy(img, dol_inst->chip[0].mem, AT88_SIZE);
+        img[AT88_SIZE] = dol_inst->chip[0].fuses;
+    } else {
+        FILE *f = nvr_fopen(chip_files[0], "rb");
+
+        if (!f)
+            return -1;
+        if (fread(img, 1, sizeof(img), f) < AT88_SIZE) {
+            fclose(f);
+            return -1;
+        }
+        fclose(f);
+    }
     return dolphin_keygen_read_u9(img, serial, country);
 }
 

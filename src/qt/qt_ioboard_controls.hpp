@@ -32,10 +32,6 @@ public:
     /* Show the controls of the board that is fitted now, and only those. */
     void refresh();
 
-    /* Board tools that belong in the Tools menu (the TouchMaster key
-       generator), shown with their board like the rest. */
-    void addToolsEntries(QMenu *tools);
-
 private:
     struct Control {
         QAction *action;
@@ -55,7 +51,6 @@ private:
     void chooseKey();
     void removeKey();
     void refreshKey();
-    void openDolphinKeys();
 };
 
 #endif

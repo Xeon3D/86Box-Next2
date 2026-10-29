@@ -151,17 +151,14 @@ DolphinKeyDialog::writeChips()
     if (s.isEmpty())
         return;
     ret = dolphin_io_write_keys(s.toULongLong(), (unsigned) countryBox->currentData().toInt(), version >> 16, version & 0xffff);
-    if (ret == -2) {
-        QMessageBox::warning(this, windowTitle(), tr("There is no Midway Dolphin I/O board in this machine."));
-        return;
-    } else if (ret) {
+    if (ret) {
         QMessageBox::warning(this, windowTitle(), tr("The chips could not be written (%1).").arg(ret));
         return;
     }
-    if (QMessageBox::question(this, windowTitle(),
-                              tr("The chips are written and saved. The game reads them when it starts: hard reset the "
-                                 "machine now?"))
-        == QMessageBox::Yes)
-        pc_reset_hard();
+    QMessageBox::information(this, windowTitle(),
+                             dolphin_io_present() ? tr("The chips are written and saved. The game reads them when it starts: "
+                                                       "hard reset the machine after closing the settings.")
+                                                  : tr("The chips are saved in this machine's nvr folder. The board loads "
+                                                       "them when the machine starts."));
     accept();
 }

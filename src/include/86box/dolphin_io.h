@@ -20,7 +20,13 @@ extern "C" {
 #define DOLPHIN_LINE_COIN3     2 /* 62h bit 2 */
 #define DOLPHIN_LINE_CALIBRATE 3 /* 62h bit 6 */
 #define DOLPHIN_LINE_TEST      4 /* 62h bit 7 */
-#define DOLPHIN_LINES          5
+#define DOLPHIN_LINE_ELEC_A    5 /* 64h bit 1: electronic coin inputs A-F */
+#define DOLPHIN_LINE_ELEC_B    6 /* 64h bit 2 */
+#define DOLPHIN_LINE_ELEC_C    7 /* 64h bit 3 */
+#define DOLPHIN_LINE_ELEC_D    8 /* 64h bit 4 */
+#define DOLPHIN_LINE_ELEC_E    9 /* 64h bit 5 */
+#define DOLPHIN_LINE_ELEC_F    10 /* 64h bit 6 */
+#define DOLPHIN_LINES          11
 
 extern void dolphin_io_pulse(int line);
 extern int  dolphin_io_present(void);

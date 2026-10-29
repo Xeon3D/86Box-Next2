@@ -95,7 +95,14 @@ IOBoardControls::IOBoardControls(QWidget *parent, QMenuBar *menubar, QAction *me
     const int dol = IO_BOARD_DOLPHIN;
     addLine(dol, "coin_1", tr("Coin &1"), tr("Coin 1"), DOLPHIN_LINE_COIN1, toolbar, toolbarBefore);
     addLine(dol, "coin_2", tr("Coin &2"), tr("Coin 2"), DOLPHIN_LINE_COIN2, toolbar, toolbarBefore);
-    addLine(dol, "coin_3", tr("Coin &3"), tr("Coin 3"), DOLPHIN_LINE_COIN3, toolbar, toolbarBefore);
+    addLine(dol, "coin_3", tr("Coin &3 (bill validator)"), tr("Coin 3 / DBV"), DOLPHIN_LINE_COIN3, toolbar, toolbarBefore);
+    addSeparator(dol);
+    addLine(dol, "coin_4", tr("Electronic coin &A"), tr("Electronic coin input A"), DOLPHIN_LINE_ELEC_A, toolbar, toolbarBefore);
+    addLine(dol, "coin_4", tr("Electronic coin &B"), tr("Electronic coin input B"), DOLPHIN_LINE_ELEC_B, toolbar, toolbarBefore);
+    addLine(dol, "coin_4", tr("Electronic coin C"), tr("Electronic coin input C"), DOLPHIN_LINE_ELEC_C, toolbar, toolbarBefore);
+    addLine(dol, "coin_4", tr("Electronic coin D"), tr("Electronic coin input D"), DOLPHIN_LINE_ELEC_D, toolbar, toolbarBefore);
+    addLine(dol, "coin_4", tr("Electronic coin E"), tr("Electronic coin input E"), DOLPHIN_LINE_ELEC_E, toolbar, toolbarBefore);
+    addLine(dol, "coin_4", tr("Electronic coin F"), tr("Electronic coin input F"), DOLPHIN_LINE_ELEC_F, toolbar, toolbarBefore);
     addSeparator(dol);
     addLine(dol, "operator_setup", tr("&TEST"), tr("TEST switch: operator menu (diag)"), DOLPHIN_LINE_TEST, toolbar, toolbarBefore);
     addLine(dol, "calibrate", tr("&Calibrate"), tr("Calibrate switch: touch-screen calibration"), DOLPHIN_LINE_CALIBRATE, toolbar, toolbarBefore);

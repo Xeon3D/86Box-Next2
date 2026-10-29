@@ -28,6 +28,7 @@ extern void        io_board_reset(void);
 extern const char *io_board_get_internal_name(int board);
 extern int         io_board_get_from_internal_name(const char *str);
 extern int         io_board_has_config(int board);
+extern int         io_board_pulse(int line);
 #ifdef EMU_DEVICE_H
 extern const device_t *io_board_get_device(int board);
 #endif

@@ -83,6 +83,7 @@ typedef int sock_t;
 #include <86box/char.h>
 #include <86box/serial.h>
 #include <86box/automation.h>
+#include <86box/io_board.h>
 #include <zstd.h>
 #ifdef USE_GDBSTUB
 #    include <86box/gdbstub.h>
@@ -2060,6 +2061,13 @@ handle_request(char *line)
         mouse_scale(atoi(argv[1]), atoi(argv[2]));
         mouse_set_buttons_ex(atoi(argv[3]));
         respond_ok_time();
+    } else if (!strcmp(argv[0], "ioboard") && (argc == 3) && !strcmp(argv[1], "pulse")) {
+        /* ioboard pulse <line>: press a switch of the fitted arcade I/O
+           board (coin, operator button), as its I/O Board menu entry does. */
+        if (!io_board_pulse(atoi(argv[2])))
+            respond_error("no arcade I/O board fitted");
+        else
+            respond_ok_time();
     } else if (!strcmp(argv[0], "tablet") && ((argc == 4) || ((argc == 2) && !strcmp(argv[1], "out")))) {
         /* tablet <x> <y> <buttons>: the pen (or finger) at pixel x,y of the
            last frame, as screenshots have it; tablet out: lifted away. For

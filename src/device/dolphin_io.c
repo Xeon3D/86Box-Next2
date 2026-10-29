@@ -56,6 +56,10 @@
 #define DOL_IRQ       5
 #define DOL_TICK_HZ   215.0
 #define DOL_PULSE_MS  150
+/* coinmgr counts board ticks while a coin line is low and credits it on
+   release only for 6-30 ticks (coin 1), 6-90 (coin 2) or 2-90 (bill
+   validator): 80 ms is about 17. */
+#define DOL_COIN_MS   80
 
 #define DOL_UART_BASE 0x20
 #define DOL_ID        0x50
@@ -78,7 +82,9 @@
 #define DOL_A_DRIVE 0x40
 
 static const char *chip_files[2] = { "dolphin_u9.nvr", "dolphin_abyss.nvr" };
-static const uint8_t line_bits[DOLPHIN_LINES] = { 0x01, 0x02, 0x04, 0x40, 0x80 };
+/* switch lines: register 62h or 64h, and the bit */
+static const uint8_t line_regs[DOLPHIN_LINES] = { 0x62, 0x62, 0x62, 0x62, 0x62, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64 };
+static const uint8_t line_bits[DOLPHIN_LINES] = { 0x01, 0x02, 0x04, 0x40, 0x80, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40 };
 
 typedef struct dolphin_io_t {
     mem_mapping_t win;
@@ -184,12 +190,10 @@ atmel_read(dolphin_io_t *dev)
 }
 
 static uint8_t
-sw0_read(dolphin_io_t *dev)
+sw_read(dolphin_io_t *dev, uint8_t reg, uint8_t v)
 {
-    uint8_t v = 0xff;
-
     for (int l = 0; l < DOLPHIN_LINES; l++)
-        if (dev->line_ticks[l] > 0)
+        if ((line_regs[l] == reg) && (dev->line_ticks[l] > 0))
             v &= ~line_bits[l];
     return v;
 }
@@ -222,9 +226,9 @@ dol_readb(uint32_t addr, void *priv)
         case DOL_DIP:
             return dev->dip;
         case DOL_SW0:
-            return sw0_read(dev);
+            return sw_read(dev, DOL_SW0, 0xff);
         case DOL_SW1:
-            return dev->sw1;
+            return sw_read(dev, DOL_SW1, dev->sw1);
         case DOL_OUT:
             return dev->out;
         case DOL_INTSTAT:
@@ -327,7 +331,7 @@ dolphin_io_pulse(int line)
 {
     if (!dol_inst || (line < 0) || (line >= DOLPHIN_LINES))
         return;
-    dol_inst->line_ticks[line] = (int) (DOL_PULSE_MS * DOL_TICK_HZ / 1000.0);
+    dol_inst->line_ticks[line] = (int) ((((line <= DOLPHIN_LINE_COIN3) || (line >= DOLPHIN_LINE_ELEC_A)) ? DOL_COIN_MS : DOL_PULSE_MS) * DOL_TICK_HZ / 1000.0);
 }
 
 int

@@ -71,6 +71,27 @@ io_board_get_device(int board)
     return boards[board].dev;
 }
 
+/* Presses a switch line of the fitted board, as its I/O Board menu entries do
+   (each board's own line numbers). Returns 0 with no board fitted. */
+int
+io_board_pulse(int line)
+{
+    switch (io_board_type) {
+        case IO_BOARD_FUNWORLD:
+            funworld_io_pulse(line);
+            return 1;
+        case IO_BOARD_MERIT_XL:
+        case IO_BOARD_MERIT_MAXX:
+            merit_io_pulse(line, 0);
+            return 1;
+        case IO_BOARD_DOLPHIN:
+            dolphin_io_pulse(line);
+            return 1;
+        default:
+            return 0;
+    }
+}
+
 int
 io_board_has_config(int board)
 {

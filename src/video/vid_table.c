@@ -227,6 +227,7 @@ video_cards[] = {
     { .device = &p9100_viper_se_pci_device,                     .flags = VIDEO_FLAG_TYPE_NONE      },
     { .device = &p9100_papilio_pci_device,                      .flags = VIDEO_FLAG_TYPE_NONE      },
     /* AGP */
+    { .device = &mach64ragepro_device,                          .flags = VIDEO_FLAG_TYPE_NONE      }, /* 86Box-Next */
     { .device = &voodoo_banshee_agp_device,                     .flags = VIDEO_FLAG_TYPE_NONE      },
     { .device = &velocity_100_agp_device,                       .flags = VIDEO_FLAG_TYPE_NONE      },
     { .device = &velocity_200_agp_device,                       .flags = VIDEO_FLAG_TYPE_NONE      },

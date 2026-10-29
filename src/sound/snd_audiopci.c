@@ -58,6 +58,7 @@ typedef struct es137x_t {
     uint8_t subsys_id[4];
 
     uint32_t base_addr;
+    uint16_t fixed_io; /* 86Box-Next: I/O base pinned for software that hard-codes it (0 = BIOS) */
 
     uint8_t int_line;
     uint8_t irq_state;
@@ -885,6 +886,11 @@ es137x_inw(uint16_t port, void *priv)
     es137x_t *dev = (es137x_t *) priv;
     uint16_t  ret = 0xffff;
 
+    /* 86Box-Next: an unaligned word is the two bytes its byte enables select
+       (Midway TouchMaster II's kernel acknowledges DAC2 through a word at 21h). */
+    if (port & 1)
+        return es137x_inb(port, priv) | (es137x_inb(port + 1, priv) << 8);
+
     switch (port & 0x3e) {
         /* Interrupt/Chip Select Control Register, Address 00H
            Addressable as byte, word, longword */
@@ -1260,6 +1266,13 @@ es137x_outw(uint16_t port, uint16_t val, void *priv)
 {
     es137x_t *dev = (es137x_t *) priv;
     uint32_t  old_legacy_ctrl;
+
+    /* 86Box-Next: an unaligned word is the two bytes its byte enables select. */
+    if (port & 1) {
+        es137x_outb(port, val & 0xff, priv);
+        es137x_outb(port + 1, val >> 8, priv);
+        return;
+    }
 
     switch (port & 0x3f) {
         /* Interrupt/Chip Select Control Register, Address 00H
@@ -1878,6 +1891,18 @@ update_legacy(es137x_t *dev, uint32_t old_legacy_ctrl)
     }
 }
 
+/* 86Box-Next: the I/O base in use. With a fixed base (for software that
+   hard-codes it, Midway TouchMaster II: EF00h), whatever address is assigned
+   decodes and reads back as that base; the register itself keeps what was
+   written, so a sizing probe (all ones) still reads back the size mask. */
+static uint32_t
+es137x_io_base(const es137x_t *dev)
+{
+    if (dev->fixed_io && ((dev->base_addr & 0xff00) != 0xff00))
+        return dev->fixed_io;
+    return dev->base_addr;
+}
+
 static uint8_t
 es1370_pci_read(int func, int addr, UNUSED(int len), void *priv)
 {
@@ -2018,13 +2043,13 @@ es1371_pci_read(int func, int addr, UNUSED(int len), void *priv)
             return 0x04;
 
         case 0x10:
-            return 0x01 | (dev->base_addr & 0xc0); /* memBaseAddr */
+            return 0x01 | (es137x_io_base(dev) & 0xc0); /* memBaseAddr */
         case 0x11:
-            return dev->base_addr >> 8;
+            return es137x_io_base(dev) >> 8;
         case 0x12:
-            return dev->base_addr >> 16;
+            return es137x_io_base(dev) >> 16;
         case 0x13:
-            return dev->base_addr >> 24;
+            return es137x_io_base(dev) >> 24;
 
         case 0x2c ... 0x2f:
             return dev->subsys_id[addr & 3]; /* Subsystem vendor ID */
@@ -2072,7 +2097,7 @@ static void
 es137x_io_set(es137x_t *dev, int set)
 {
     if (dev->pci_command & PCI_COMMAND_IO) {
-        io_handler(set, dev->base_addr, 0x0040,
+        io_handler(set, es137x_io_base(dev), 0x0040,
                    es137x_inb, es137x_inw, es137x_inl,
                    es137x_outb, es137x_outw, es137x_outl, dev);
     }
@@ -2631,6 +2656,8 @@ es1371_init(const device_t *info)
 {
     es137x_t *dev = calloc(1, sizeof(es137x_t));
     dev->type = info->local & 0xffffff00;
+    if ((info->local & 0xffffff01) == AUDIOPCI_ES1371)
+        dev->fixed_io = device_get_config_hex16("fixed_io") & 0xffc0;
 
     if (device_get_config_int("receive_input"))
         midi_in_handler(1, es137x_input_msg, es137x_input_sysex, es137x_input_remain, dev);
@@ -2718,6 +2745,21 @@ static const device_config_t es1371_config[] = {
         .file_filter    = NULL,
         .spinner        = { 0 },
         .selection      = { { 0 } },
+        .bios           = { { 0 } }
+    },
+    {
+        .name           = "fixed_io",
+        .description    = "I/O base",
+        .type           = CONFIG_HEX16,
+        .default_string = NULL,
+        .default_int    = 0,
+        .file_filter    = NULL,
+        .spinner        = { 0 },
+        .selection      = {
+            { .description = "Assigned by the BIOS",          .value = 0x0000 },
+            { .description = "EF00h (Midway TouchMaster II)", .value = 0xef00 },
+            { .description = ""                                               }
+        },
         .bios           = { { 0 } }
     },
     { .name = "", .description = "", .type = CONFIG_END }

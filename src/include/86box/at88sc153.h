@@ -60,6 +60,9 @@ typedef struct at88sc153 {
     int      nbuf;
     uint8_t  txbyte;
     int      pw_ok[2];      /* write-password sets verified this session  */
+    int      rst;          /* last RST level                              */
+    int      atr_armed;    /* clocked while in reset: answer when it ends */
+    int      atr_bit;      /* next Answer-To-Reset bit, 0-31              */
 
     int      dirty;         /* contents changed, caller should persist    */
 } at88sc153_t;

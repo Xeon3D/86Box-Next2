@@ -9,7 +9,20 @@
 #include <string.h>
 #include <86box/at88sc153.h>
 
-enum { ST_IDLE, ST_RX, ST_RX_ACK, ST_TX, ST_TX_ACK, ST_WAIT_STOP };
+enum { ST_IDLE, ST_RX, ST_RX_ACK, ST_TX, ST_TX_ACK, ST_WAIT_STOP, ST_ATR };
+
+/* Answer-To-Reset: given when the part is clocked while RST is high, after
+   RST falls, a bit per clock (first bit at once, the next on each falling
+   edge), each byte LSB first as synchronous cards do. TouchMaster's diag
+   (Dolphin I/O Test) reads 32 bits MSB first and wants 3455AA85h, which
+   is these bytes. */
+static const uint8_t atr_bytes[4] = { 0x2C, 0xAA, 0x55, 0xA1 };
+
+static int
+atr_out(int bit)
+{
+    return (atr_bytes[bit >> 3] >> (bit & 7)) & 1;
+}
 
 /* command decode: bits 1:0 = operation, bits 3:2 = zone / password set */
 #define OP(c)      ((c) & 3)
@@ -149,12 +162,26 @@ at88_pins(at88sc153_t *c, int scl, int sda, int rst)
         return;
     }
     if (rst) {
+        if (!c->rst)
+            c->atr_armed = 0;
+        if (!c->scl && scl)
+            c->atr_armed = 1;                   /* clocked in reset: ATR follows */
         c->state   = ST_IDLE;
         c->sda_out = 1;
         c->pw_ok[0] = c->pw_ok[1] = 0;
+        c->rst = 1;
         c->scl = scl;
         c->sda_in = sda;
         return;
+    }
+    if (c->rst) {                               /* RST released */
+        c->rst = 0;
+        if (c->atr_armed) {
+            c->state   = ST_ATR;
+            c->atr_bit = 0;
+            c->sda_out = atr_out(0);
+        }
+        c->atr_armed = 0;
     }
 
     if (c->scl && scl && sda != c->sda_in) {
@@ -198,6 +225,13 @@ at88_pins(at88sc153_t *c, int scl, int sda, int rst)
                     c->sda_out = 1;
                 } else
                     c->sda_out = (c->txbyte >> (7 - c->bitcnt)) & 1;
+                break;
+            case ST_ATR:
+                if (++c->atr_bit >= 32) {
+                    c->state   = ST_IDLE;
+                    c->sda_out = 1;
+                } else
+                    c->sda_out = atr_out(c->atr_bit);
                 break;
             case ST_TX_ACK:
                 if (c->bitcnt == 0 && c->cmd != 0xBE) {     /* sequential read */

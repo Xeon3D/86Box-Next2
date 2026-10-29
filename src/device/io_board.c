@@ -20,6 +20,7 @@
 #include <86box/device.h>
 #include <86box/funworld_io.h>
 #include <86box/merit_io.h>
+#include <86box/dolphin_io.h>
 #include <86box/io_board.h>
 
 int io_board_type = IO_BOARD_NONE;
@@ -32,6 +33,7 @@ static const struct {
     [IO_BOARD_FUNWORLD]   = { &funworld_io_device   },
     [IO_BOARD_MERIT_XL]   = { &merit_io_xl_device   },
     [IO_BOARD_MERIT_MAXX] = { &merit_io_maxx_device },
+    [IO_BOARD_DOLPHIN]    = { &dolphin_io_device    },
     { NULL }
     // clang-format on
 };

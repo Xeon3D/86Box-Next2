@@ -54,6 +54,8 @@ add_library(dev OBJECT
     lpt_ditto.c
     lpt_epat.c
     io_board.c
+    at88sc153.c
+    dolphin_io.c
     ../usb/usb_bus.c
     ../usb/usb_uhci.c
     ../usb/usb_ehci.c

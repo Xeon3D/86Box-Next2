@@ -799,6 +799,8 @@ SettingsOtherPeripherals::ioBoardDescription(int board)
             return tr("Merit Megatouch XL I/O board (CRT-500 Zeus): four coins, Operator Setup, Calibrate, the security key, the CS4231A codec and the U12 ROM window. Configure picks the key dump, board ROM, battery RAM and DIP switches.");
         case IO_BOARD_MERIT_MAXX:
             return tr("Merit Megatouch MAXX I/O board (Millennium): four coins, Operator Setup, Calibrate, the security key and the PC Card slots. Configure picks the key dump and DIP switches.");
+        case IO_BOARD_DOLPHIN:
+            return tr("Midway Dolphin I/O board (TouchMaster II), ISA at D0000h, IRQ 5: three coins, TEST, Calibrate, and the U9 and Abyss security chips (kept as dolphin_u9.nvr / dolphin_abyss.nvr; blank when missing). Configure sets the DIP switches and whether the Abyss key is fitted.");
         default:
             return tr("No arcade I/O board.");
     }

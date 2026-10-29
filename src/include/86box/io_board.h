@@ -18,6 +18,7 @@ enum {
     IO_BOARD_FUNWORLD,   /* funworld Photo Play I/O card (PeepeeBox)       */
     IO_BOARD_MERIT_XL,   /* Merit Megatouch XL, CRT-500 Zeus (MegaPPBox)    */
     IO_BOARD_MERIT_MAXX, /* Merit Megatouch MAXX, Millennium (MegaPPBox)   */
+    IO_BOARD_DOLPHIN,    /* Midway Dolphin, TouchMaster II                 */
     IO_BOARD_COUNT
 };
 

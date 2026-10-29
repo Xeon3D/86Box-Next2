@@ -26,6 +26,7 @@ extern "C" {
 #include <86box/io_board.h>
 #include <86box/funworld_io.h>
 #include <86box/merit_io.h>
+#include <86box/dolphin_io.h>
 }
 
 /* Any Merit board: XL and MAXX share their controls. */
@@ -44,6 +45,8 @@ pulse(int board, int line)
 {
     if (board == IO_BOARD_FUNWORLD)
         funworld_io_pulse(line);
+    else if (board == IO_BOARD_DOLPHIN)
+        dolphin_io_pulse(line);
     else
         merit_io_pulse(line, 0);
 }
@@ -86,6 +89,16 @@ IOBoardControls::IOBoardControls(QWidget *parent, QMenuBar *menubar, QAction *me
     addLine(MERIT_ANY, "operator_setup", tr("&Operator Setup"), tr("Operator Setup button (inside the cabinet)"), MERIT_LINE_SETUP, toolbar, toolbarBefore);
     addLine(MERIT_ANY, "calibrate", tr("&Calibrate"), tr("Calibrate button: touch-screen calibration"), MERIT_LINE_CALIBRATE, toolbar, toolbarBefore);
     addSeparator(MERIT_ANY);
+
+    /* Midway Dolphin (TouchMaster II): three coins and the TEST and Calibrate
+       switches on the board. */
+    const int dol = IO_BOARD_DOLPHIN;
+    addLine(dol, "coin_1", tr("Coin &1"), tr("Coin 1"), DOLPHIN_LINE_COIN1, toolbar, toolbarBefore);
+    addLine(dol, "coin_2", tr("Coin &2"), tr("Coin 2"), DOLPHIN_LINE_COIN2, toolbar, toolbarBefore);
+    addLine(dol, "coin_3", tr("Coin &3"), tr("Coin 3"), DOLPHIN_LINE_COIN3, toolbar, toolbarBefore);
+    addSeparator(dol);
+    addLine(dol, "operator_setup", tr("&TEST"), tr("TEST switch: operator menu (diag)"), DOLPHIN_LINE_TEST, toolbar, toolbarBefore);
+    addLine(dol, "calibrate", tr("&Calibrate"), tr("Calibrate switch: touch-screen calibration"), DOLPHIN_LINE_CALIBRATE, toolbar, toolbarBefore);
 
     keyHeader = menu->addAction(QString());
     keyHeader->setEnabled(false);

@@ -356,6 +356,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     /* 86Box-Next: the arcade I/O board's cabinet controls. */
     ioBoard = new IOBoardControls(this, ui->menubar, ui->menuAbout->menuAction(), ui->toolBar, ui->toolBar->actions().last());
+    ioBoard->addToolsEntries(ui->menuTools);
 
     this->setWindowFlag(Qt::CustomizeWindowHint, true);
     this->setWindowFlag(Qt::MSWindowsFixedSizeDialogHint, vid_resize != 1);

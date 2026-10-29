@@ -10,6 +10,8 @@
 #ifndef EMU_DOLPHIN_IO_H
 #define EMU_DOLPHIN_IO_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -30,6 +32,13 @@ extern "C" {
 
 extern void dolphin_io_pulse(int line);
 extern int  dolphin_io_present(void);
+
+/* Program U9 and the Abyss key as the game's factory flow would (see
+   dolphin_keygen.h), on the board's next tick, and save them; the game reads
+   them when it starts. 0 if queued, -1 bad serial, -2 no board, -3 busy. */
+extern int dolphin_io_write_keys(uint64_t serial, unsigned country, unsigned major, unsigned minor);
+/* Serial number and country of the fitted U9; -1 if blank or no board. */
+extern int dolphin_io_read_keys(uint64_t *serial, unsigned *country);
 
 #ifdef EMU_DEVICE_H
 extern const device_t dolphin_io_device;

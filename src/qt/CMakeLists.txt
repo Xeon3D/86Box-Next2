@@ -130,6 +130,8 @@ add_library(ui STATIC
     qt_mainwindow.cpp
     qt_ioboard_controls.cpp
     qt_ioboard_controls.hpp
+    qt_dolphin_keydialog.cpp
+    qt_dolphin_keydialog.hpp
     qt_usb_manager.cpp
     qt_usb_manager.hpp
     qt_guesttools.cpp

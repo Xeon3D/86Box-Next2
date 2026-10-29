@@ -9,6 +9,7 @@
  *             later.  See COPYING for more information.
  */
 #include "qt_ioboard_controls.hpp"
+#include "qt_dolphin_keydialog.hpp"
 
 #include <QAction>
 #include <QFileDialog>
@@ -131,6 +132,25 @@ IOBoardControls::addLine(int board, const char *icon, const QString &text, const
     menu->addAction(act);
     toolbar->insertAction(toolbarBefore, act);
     controls.append({ act, board, true });
+}
+
+void
+IOBoardControls::addToolsEntries(QMenu *tools)
+{
+    controls.append({ tools->addSeparator(), IO_BOARD_DOLPHIN, false });
+    auto *keys = tools->addAction(tr("TouchMaster &Key Generator..."));
+    keys->setToolTip(tr("Program the Dolphin board's U9 chip and Abyss key for a serial number and country"));
+    connect(keys, &QAction::triggered, this, &IOBoardControls::openDolphinKeys);
+    controls.append({ keys, IO_BOARD_DOLPHIN, false });
+    refresh();
+}
+
+void
+IOBoardControls::openDolphinKeys()
+{
+    DolphinKeyDialog dialog(parentWidget);
+
+    dialog.exec();
 }
 
 void

@@ -84,6 +84,7 @@ typedef int sock_t;
 #include <86box/serial.h>
 #include <86box/automation.h>
 #include <86box/io_board.h>
+#include <86box/dolphin_io.h>
 #include <zstd.h>
 #ifdef USE_GDBSTUB
 #    include <86box/gdbstub.h>
@@ -2061,6 +2062,22 @@ handle_request(char *line)
         mouse_scale(atoi(argv[1]), atoi(argv[2]));
         mouse_set_buttons_ex(atoi(argv[3]));
         respond_ok_time();
+    } else if (!strcmp(argv[0], "ioboard") && (argc == 5) && !strcmp(argv[1], "keys")) {
+        /* ioboard keys <serial> <country> <major.minor>: program the Midway
+           Dolphin's U9 chip and Abyss key, as Tools > TouchMaster Key
+           Generator does; the game reads them when it next starts. */
+        unsigned major = 0;
+        unsigned minor = 0;
+        int      ret;
+
+        if (sscanf(argv[4], "%u.%u", &major, &minor) < 1)
+            respond_error("version must be major.minor");
+        else if ((ret = dolphin_io_write_keys(strtoull(argv[2], NULL, 10), (unsigned) atoi(argv[3]), major, minor)) == -2)
+            respond_error("no Midway Dolphin I/O board fitted");
+        else if (ret)
+            respond_error("serial too long or a write still pending");
+        else
+            respond_ok_time();
     } else if (!strcmp(argv[0], "ioboard") && (argc == 3) && !strcmp(argv[1], "pulse")) {
         /* ioboard pulse <line>: press a switch of the fitted arcade I/O
            board (coin, operator button), as its I/O Board menu entry does. */

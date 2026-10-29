@@ -56,6 +56,7 @@ add_library(dev OBJECT
     io_board.c
     at88sc153.c
     dolphin_io.c
+    dolphin_keygen.c
     ../usb/usb_bus.c
     ../usb/usb_uhci.c
     ../usb/usb_ehci.c

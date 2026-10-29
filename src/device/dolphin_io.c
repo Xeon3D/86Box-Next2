@@ -40,6 +40,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <86box/86box.h>
 #include <86box/device.h>
 #include <86box/timer.h>
@@ -49,6 +50,7 @@
 #include <86box/plat.h>
 #include <86box/plat_unused.h>
 #include <86box/at88sc153.h>
+#include <86box/dolphin_keygen.h>
 #include <86box/dolphin_io.h>
 
 #define DOL_BASE      0xd0000
@@ -105,6 +107,10 @@ typedef struct dolphin_io_t {
 } dolphin_io_t;
 
 static dolphin_io_t *dol_inst;
+
+/* Chip images from the key generator, handed to the emulation thread. */
+static uint8_t      keys_img[2][AT88_SIZE + 1];
+static volatile int keys_pending;
 
 #ifdef ENABLE_DOLPHIN_IO_LOG
 int dolphin_io_do_log = ENABLE_DOLPHIN_IO_LOG;
@@ -304,6 +310,27 @@ dol_writew(uint32_t addr, uint16_t val, void *priv)
     dol_writeb(addr + 1, val >> 8, priv);
 }
 
+/* New chips from the key generator: as if freshly programmed, and saved. */
+static void
+keys_apply(dolphin_io_t *dev)
+{
+    if (!keys_pending)
+        return;
+    for (int n = 0; n < 2; n++) {
+        int present = dev->chip[n].present;
+
+        at88_init_blank(&dev->chip[n]);
+        memcpy(dev->chip[n].mem, keys_img[n], AT88_SIZE);
+        dev->chip[n].fuses   = keys_img[n][AT88_SIZE];
+        dev->chip[n].present = 1; /* saved even with the key out */
+        dev->chip[n].dirty   = 1;
+        chip_save(dev, n);
+        dev->chip[n].present = present;
+    }
+    keys_pending = 0;
+    pclog("Dolphin I/O: new chips from the key generator\n");
+}
+
 static void
 dol_tick(void *priv)
 {
@@ -318,6 +345,8 @@ dol_tick(void *priv)
         picintc(1 << DOL_IRQ);
         picint(1 << DOL_IRQ);
     }
+
+    keys_apply(dev);
 
     /* persist programmed chips promptly; the game writes them rarely */
     chip_save(dev, 0);
@@ -338,6 +367,34 @@ int
 dolphin_io_present(void)
 {
     return dol_inst != NULL;
+}
+
+int
+dolphin_io_write_keys(uint64_t serial, unsigned country, unsigned major, unsigned minor)
+{
+    uint32_t now  = (uint32_t) time(NULL);
+    uint32_t seed = now ^ (plat_get_ticks() * 2654435761U); /* srandomdev() */
+
+    if (!dol_inst)
+        return -2;
+    if (keys_pending)
+        return -3;
+    if (dolphin_keygen(keys_img[0], keys_img[1], serial, country, major, minor, now, seed))
+        return -1;
+    keys_pending = 1;
+    return 0;
+}
+
+int
+dolphin_io_read_keys(uint64_t *serial, unsigned *country)
+{
+    uint8_t img[AT88_SIZE + 1];
+
+    if (!dol_inst)
+        return -1;
+    memcpy(img, dol_inst->chip[0].mem, AT88_SIZE);
+    img[AT88_SIZE] = dol_inst->chip[0].fuses;
+    return dolphin_keygen_read_u9(img, serial, country);
 }
 
 static void *
@@ -374,6 +431,7 @@ dolphin_io_close(void *priv)
 {
     dolphin_io_t *dev = (dolphin_io_t *) priv;
 
+    keys_apply(dev); /* a reset right after the key generator */
     chip_save(dev, 0);
     chip_save(dev, 1);
     dol_inst = NULL;

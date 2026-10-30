@@ -859,6 +859,9 @@ mach64_crtc_int_en(const mach64_t *mach64)
         return 0x0000000a;
     if ((mach64->type == MACH64_VT) || (mach64->type == MACH64_VT2))
         return 0x0055000a;
+    /* 86Box-Next: the Rage Pro's bus master end of list, BUSMASTER_EOL_INT_EN (24). */
+    if (mach64->ragepro)
+        return 0x0155028a;
     return 0x0055028a;
 }
 
@@ -919,6 +922,15 @@ mach64_update_irqs(mach64_t *mach64)
     else
         picintc(1 << mach64->isa_irq);
     mach64->isa_irq_raised = pending;
+}
+
+/* 86Box-Next: the Rage Pro's bus master reached the end of its list:
+   BUSMASTER_EOL_INT, CRTC_INT_CNTL bit 25. */
+void
+mach64_ragepro_bm_eol(mach64_t *mach64)
+{
+    mach64->crtc_int_cntl |= 1u << 25;
+    mach64_update_irqs(mach64);
 }
 
 /* CRTC_VLINE_INT (CRTC_INT_CNTL bit 4) sets when the CRTC reaches the line
@@ -1356,6 +1368,12 @@ mach64_ext_readb(uint32_t addr, void *priv)
     else if ((addr < 0x000a0000) || ((addr >= 0x000bf800) && (addr <= 0x000bffff)) || (addr >= 0x00100000)) {
         if ((mach64->type == MACH64_GTB) && (addr & 0x400) && mach64_gtb_readb(mach64, addr, &ret))
             return ret;
+        if (mach64->ragepro && !(addr & 0x400)) {
+            uint32_t dword;
+
+            if (mach64_ragepro_blk1_read(mach64, addr & 0x3ff, &dword))
+                return dword >> ((addr & 3) * 8);
+        }
         if (!(addr & 0x400) && mach64_is_vt(mach64)) {
             ret = mach64->vt_blk1[(addr & 0x3ff) >> 2] >> ((addr & 3) * 8);
         } else if (!(addr & 0x400)) {
@@ -1890,6 +1908,8 @@ mach64_ext_readw(uint32_t addr, void *priv)
         /* A 3D register in one read, not two halves. */
         if (mach64->gt3d && (addr & 0x400) && (addr & 0x300) && ((addr & 3) <= 2) && mach64_3d_read(mach64, addr, &dword))
             return dword >> ((addr & 3) * 8);
+        if (mach64->ragepro && !(addr & 0x400) && ((addr & 3) <= 2) && mach64_ragepro_blk1_read(mach64, addr & 0x3ff, &dword))
+            return dword >> ((addr & 3) * 8);
         if (!(addr & 0x400)) {
             mach64_log("mach64_ext_readw: addr=%04x\n", addr);
             ret = mach64_ext_readb(addr, priv);
@@ -1925,6 +1945,8 @@ mach64_ext_readl(uint32_t addr, void *priv)
     else if ((addr < 0x000a0000) || ((addr >= 0x000bf800) && (addr <= 0x000bffff)) || (addr >= 0x00100000)) {
         /* A 3D register in one read, not four bytes. */
         if (mach64->gt3d && (addr & 0x400) && (addr & 0x300) && !(addr & 3) && mach64_3d_read(mach64, addr, &ret))
+            return ret;
+        if (mach64->ragepro && !(addr & 0x400) && !(addr & 3) && mach64_ragepro_blk1_read(mach64, addr & 0x3ff, &ret))
             return ret;
         if (!(addr & 0x400)) {
             mach64_log("mach64_ext_readl: addr=%04x\n", addr);
@@ -1965,6 +1987,8 @@ mach64_ext_writeb(uint32_t addr, uint8_t val, void *priv)
         mach64_log("mach64_ext_writeb : addr %08X val %02X\n", addr, val);
 
         if ((mach64->type == MACH64_GTB) && ((addr & 0x700) == 0x400) && mach64_gtb_writeb(mach64, addr, val))
+            return;
+        if (mach64->ragepro && !(addr & 0x400) && mach64_ragepro_blk1_write(mach64, addr & 0x3ff, val, 1))
             return;
         if (!(addr & 0x400) && mach64_is_vt(mach64)) {
             const int      reg   = (addr & 0x3ff) >> 2;
@@ -2325,6 +2349,8 @@ mach64_ext_writew(uint32_t addr, uint16_t val, void *priv)
         svga->mapping.write_w(addr, val, svga->mapping.priv);
     else if ((addr < 0x000a0000) || ((addr >= 0x000bf800) && (addr <= 0x000bffff)) || (addr >= 0x00100000)) {
         mach64_log("mach64_ext_writew : addr %08X val %04X\n", addr, val);
+        if (mach64->ragepro && !(addr & 0x400) && ((addr & 3) <= 2) && mach64_ragepro_blk1_write(mach64, addr & 0x3ff, val, 2))
+            return;
         if (!(addr & 0x400)) {
             mach64_log("mach64_ext_writew: addr=%04x val=%04x\n", addr, val);
             mach64_ext_writeb(addr, val, priv);
@@ -2360,6 +2386,8 @@ mach64_ext_writel(uint32_t addr, uint32_t val, void *priv)
     else if ((addr < 0x000a0000) || ((addr >= 0x000bf800) && (addr <= 0x000bffff)) || (addr >= 0x00100000)) {
         if ((addr & 0x3c0) != 0x200)
             mach64_log("mach64_ext_writel : addr %08X val %08X\n", addr, val);
+        if (mach64->ragepro && !(addr & 0x400) && !(addr & 3) && mach64_ragepro_blk1_write(mach64, addr & 0x3ff, val, 4))
+            return;
         if (!(addr & 0x400)) {
             mach64_log("mach64_ext_writel: addr=%04x val=%08x\n", addr, val);
 
@@ -3240,7 +3268,7 @@ mach64_pci_read(UNUSED(int func), int addr, UNUSED(int len), void *priv)
         case PCI_REG_STATUS_L:
             /* 86Box-Next: the Rage Pro has a capability list (the AGP one)
                and, an AGP device, is 66 MHz capable. */
-            return mach64->ragepro ? 0x30 : 0x00;
+            return mach64->agp ? 0x30 : 0x00;
         case PCI_REG_STATUS_H:
             return 1 << 1; /*Medium DEVSEL timing*/
         case PCI_REG_REVISION:
@@ -3305,9 +3333,9 @@ mach64_pci_read(UNUSED(int func), int addr, UNUSED(int len), void *priv)
                 return mach64->pci_regs[MACH64_PCI_IOCONFIG];
             return mach64->use_block_decoded_io | mach64->io_base;
         case PCI_REG_CAPS_PTR:
-            return mach64->ragepro ? RAGEPRO_AGP_CAP : 0x00;
+            return mach64->agp ? RAGEPRO_AGP_CAP : 0x00;
         case RAGEPRO_AGP_CAP ... (RAGEPRO_AGP_CAP + 0x0b):
-            if (mach64->ragepro)
+            if (mach64->agp)
                 return mach64_ragepro_agp_read(mach64, addr - RAGEPRO_AGP_CAP);
             return 0x00;
         default:
@@ -3389,7 +3417,7 @@ mach64_pci_write(UNUSED(int func), int addr, UNUSED(int len), uint8_t val, void 
             break;
         case (RAGEPRO_AGP_CAP + 8) ... (RAGEPRO_AGP_CAP + 0x0b):
             /* 86Box-Next: the Rage Pro's AGP command register. */
-            if (mach64->ragepro)
+            if (mach64->agp)
                 mach64->pci_regs[addr] = val & ragepro_agp_cmd_mask[addr - RAGEPRO_AGP_CAP - 8];
             break;
         case MACH64_PCI_IOCONFIG:
@@ -3773,23 +3801,31 @@ mach64gtb_init(const device_t *info)
     mach64->config_stat0                  = 5 | (1 << 4); /* CFG_MEM_TYPE 5, SGRAM on the GT-B, and the CFG_VGA_EN strap */
     mach64->mem_cntl                      = 7;            /* MEM_SIZE, 4 bits from the VT-B on: 4 MB */
     if (info->local & MACH64_FLAG_RAGEPRO) {
-        /* 86Box-Next: the 3D Rage Pro (AGP), "GB": the GT-B's 2D and 3D
-           engines and front-end scaler under its own identity. Revision 5Ch
-           is what field reports of 4742h boards give; nothing we have checks
-           it (diag compares CONFIG_CHIP_ID 15:0, the BIOSes the type only).
-           The memory is SDRAM, CFG_MEM_TYPE 4, as on the Intel BL440ZX
-           (TPS 1.7, "8 MB SDRAM") and the "MACH64GB...SDU" BIOSes, or
-           SGRAM, 5, for the "SGU" one (113-40212-103). Midway's TouchMaster
-           II used this chip: diag passes only 4742h and its dl.r2c is built
-           -DRAGEPROAGP. */
+        /* 86Box-Next: the 3D Rage Pro: the GT-B's 2D and 3D engines and
+           front-end scaler with its own setup engine, second texture, bus
+           master and AGP (vid_ati_mach64_ragepro.c). "GB" (4742h) is the
+           BGA part on the AGP, "GP" (4750h) the PQFP one on the PCI (PRG
+           3.3.1's table of IDs). Revision 5Ch is what field reports of
+           4742h boards give; nothing we have checks it (diag compares
+           CONFIG_CHIP_ID 15:0, the BIOSes the type only). The memory is
+           SDRAM, CFG_MEM_TYPE 4, as on the Intel BL440ZX (TPS 1.7, "8 MB
+           SDRAM") and the "MACH64GB...SDU" BIOSes, or SGRAM, 5, for the
+           "SGU" ones (113-40212-103, and the PCI card's 113-41901-104).
+           Midway's TouchMaster II used the AGP chip: diag passes only 4742h
+           and its dl.r2c is built -DRAGEPROAGP. */
         mach64->ragepro        = 1;
-        mach64->pci_id         = 0x4742;
-        mach64->config_chip_id = 0x5c004742;
+        mach64->agp            = !!(info->flags & DEVICE_AGP);
+        mach64->pci_id         = (info->local & MACH64_FLAG_PQFP) ? 0x4750 : 0x4742;
+        mach64->config_chip_id = 0x5c000000 | mach64->pci_id;
         mach64->fixed_io       = device_get_config_hex16("fixed_io") & 0xff00;
-        if (!(info->local & MACH64_FLAG_ONBOARD) && !strcmp(device_get_config_bios("bios_ver"), "113_40212_103"))
+        if (info->local & MACH64_FLAG_PQFP)
+            mach64->config_stat0 = 5 | (1 << 4);
+        else if (!(info->local & MACH64_FLAG_ONBOARD) && !strcmp(device_get_config_bios("bios_ver"), "113_40212_103"))
             mach64->config_stat0 = 5 | (1 << 4);
         else
             mach64->config_stat0 = 4 | (1 << 4);
+        mach64_ragepro_reset(mach64);
+        mach64_ragepro_debug_attach(mach64, 1);
     }
     mach64->use_block_decoded_io          = 4;
     mach64->pci_regs[MACH64_PCI_IOCONFIG] = 4;
@@ -3806,7 +3842,7 @@ mach64gtb_init(const device_t *info)
         ati_eeprom_load(&mach64->eeprom, (info->local & MACH64_FLAG_RAGEPRO) ? "mach64ragepro_onboard.nvr" : "mach64rage2p_onboard.nvr", 1);
     else if (info->local & MACH64_FLAG_RAGEPRO) {
         /* 86Box-Next: the Rage Pro card's own BIOS, 32K. */
-        ati_eeprom_load(&mach64->eeprom, "mach64ragepro.nvr", 1);
+        ati_eeprom_load(&mach64->eeprom, (info->local & MACH64_FLAG_PQFP) ? "mach64ragepro_pci.nvr" : "mach64ragepro.nvr", 1);
         rom_init(&mach64->bios_rom, (char *) device_get_bios_file(info, device_get_config_bios("bios_ver"), 0),
                  0xc0000, 0x8000, 0x7fff, 0, MEM_MAPPING_EXTERNAL);
     } else if (info->local & MACH64_FLAG_RAGE2C) {
@@ -3916,6 +3952,8 @@ mach64_close(void *priv)
 {
     mach64_t *mach64 = (mach64_t *) priv;
 
+    if (mach64->ragepro)
+        mach64_ragepro_debug_attach(mach64, 0);
 #ifdef DMA_BM
     mach64->dma.state = 0;
 #endif
@@ -4391,6 +4429,65 @@ static const device_config_t mach64ragepro_config[] = {
     { .name = "", .description = "", .type = CONFIG_END }
 };
 
+/* 86Box-Next: the 3D Rage Pro PCI card (PQFP, 4750h), SGRAM. */
+static const device_config_t mach64ragepro_pci_config[] = {
+    {
+        .name           = "bios_ver",
+        .description    = "BIOS Revision",
+        .type           = CONFIG_BIOS,
+        .default_string = "113_41901_104",
+        .default_int    = 0,
+        .file_filter    = NULL,
+        .spinner        = { 0 },
+        .selection      = { { 0 } },
+        .bios           = {
+            {
+                .name          = "113-41901-104, SGRAM (1997/10/20, BK3.9.0/3.077)",
+                .internal_name = "113_41901_104",
+                .bios_type     = BIOS_NORMAL,
+                .files_no      = 1,
+                .local         = 0,
+                .size          = 32768,
+                .files         = { BIOS_RAGEPRO_PCI_41901_PATH, "" }
+            },
+            { .files_no = 0 }
+        }
+    },
+    {
+        .name           = "memory",
+        .description    = "Memory size",
+        .type           = CONFIG_SELECTION,
+        .default_string = NULL,
+        .default_int    = 4,
+        .file_filter    = NULL,
+        .spinner        = { 0 },
+        .selection      = {
+            { .description = "2 MB", .value = 2 },
+            { .description = "4 MB", .value = 4 },
+            { .description = "8 MB", .value = 8 },
+            { .description = ""                 }
+        },
+        .bios           = { { 0 } }
+    },
+    {
+        .name           = "render_threads",
+        .description    = "Render threads",
+        .type           = CONFIG_SELECTION,
+        .default_string = NULL,
+        .default_int    = 2,
+        .file_filter    = NULL,
+        .spinner        = { 0 },
+        .selection      = {
+            { .description = "1", .value = 1 },
+            { .description = "2", .value = 2 },
+            { .description = "4", .value = 4 },
+            { .description = ""              }
+        },
+        .bios           = { { 0 } }
+    },
+    { .name = "", .description = "", .type = CONFIG_END }
+};
+
 /* 86Box-Next: the on-board 3D Rage Pro Turbo of the Intel BL440ZX, 8 MB of
    SDRAM (TPS 1.7); its BIOS is in the system BIOS. */
 static const device_config_t mach64ragepro_onboard_config[] = {
@@ -4664,6 +4761,21 @@ const device_t mach64ragepro_device = {
     .force_redraw  = mach64_force_redraw,
     .config        = mach64ragepro_config,
     .alias         = "ATI 3D Rage Pro Turbo AGP"
+};
+
+/* 86Box-Next: the 3D Rage Pro (PCI). */
+const device_t mach64ragepro_pci_device = {
+    .name          = "ATI 3D Rage Pro PCI",
+    .internal_name = "mach64_ragepro_pci",
+    .flags         = DEVICE_PCI,
+    .local         = MACH64_GTB | MACH64_FLAG_RAGEPRO | MACH64_FLAG_PQFP,
+    .init          = mach64gtb_init,
+    .close         = mach64_close,
+    .reset         = mach64_reset,
+    .available     = NULL,
+    .speed_changed = mach64_speed_changed,
+    .force_redraw  = mach64_force_redraw,
+    .config        = mach64ragepro_pci_config
 };
 
 const device_t mach64ragepro_onboard_device = {

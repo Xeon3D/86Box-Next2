@@ -592,6 +592,56 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   OVTEST.EXE modes 1-7 and IRQTEST.COM (savage3d-tools in the notes folder). "dev" in the debug
   command file dumps the BCI parser, 3D, overlay and interrupt state; "dev bcilog 1|0" logs every BCI dword and MMIO register write; "dev texdump <TexAddr>
   <TexDescr> <file.bmp>" decodes a texture as the 3D engine reads it.
+- ATI 3D Rage Pro (Mach64 GT-B family, `MACH64_FLAG_RAGEPRO`): the GT-B's 2D/3D engines and
+  scaler (`vid_ati_mach64_accel.c`, `vid_ati_mach64_3d.c`) plus what the Rage Pro adds. Cards: "ATI
+  3D Rage Pro AGP" (`mach64_ragepro`, "GB" 4742h, BGA, AGP capability at 50h, 2/4/8 MB, four BIOSes,
+  default Turbo 3.091), "ATI 3D Rage Pro PCI" (`mach64_ragepro_pci`, "GP" 4750h, PQFP,
+  `MACH64_FLAG_PQFP`, no capability list, SGRAM, 2/4/8 MB, default 4; BIOS 113-41901-104 BK3.9.0/3.077,
+  `roms/video/mach64/ragepro_pci_113-41901-104.bin`, the user's `atirage.vbi`) and the Intel BL440ZX's
+  on-board Rage Pro Turbo (`mach64_ragepro_onboard`). All BIOSes in `F:\Claude\Roms\video\mach64`
+  (untracked). No Rage Pro register reference exists among our documents: the formats come from
+  X.Org's mach64 driver (atiregs.h, atimach64render.c), the DRI driver (Mesa mach64_tris.c/texstate.c,
+  DRM mach64_dma.c) and ATI's SDK 4.1 (`3d_rage_pro_sdk_4.1.zip`, ATI3DCIF semantics). Setup engine
+  (`vid_ati_mach64_3d.c`, "Rage Pro's setup engine"): block 1 MM 190h-1CFh, VERTEX_n_S/T/W (floats),
+  SPEC_ARGB (its alpha the fog factor), Z (16.16), ARGB, X_Y (quarter pixels), the by-kind aliases at
+  1ABh-1BFh, secondary S/T/W; ONE_OVER_AREA (1/doubled area, its sign the winding; not with
+  SETUP_CNTL bits 0/2) or ONE_OVER_AREA_UC (always: ATI3DCIF sets 44h) draws. Triangles sampled at
+  integer pixels, top-left rule, every value a plane from the driver's 1/area, S/W T/W W perspective
+  divide (TEX_CNTL TEX_ST_DIRECT: S/T premultiplied), FLAT_SHADE_VERTEX_n; TEX_SIZE_PITCH 11:0 primary
+  (S over 2^pitch, T over 2^height), mip levels TEX_<size-n>_OFF, LOD from the derivatives with
+  TEX_CNTL LOD_BIAS (stride 1 + bias/16), TEX_BLEND_FCN 0-3 (3 true trilinear), BILINEAR_TEX_EN for
+  magnification, clamp/wrap per axis; composite texture (TEXTURE_COMPOSITE, 27:16 of TEX_SIZE_PITCH,
+  SECONDARY_TEX_OFFSET, DP_PIX_WIDTH 7:4; blend by COMP_FACTOR/16 or its alpha, modulate,
+  add-specular); TEX_SRC_AGP textures read at AGP_BASE + offset through the chipset's aperture;
+  TEX_LIGHT_FCN, ALPHA_TST_CNTL (alpha test, ALPHA_DST_SEL, SPECULAR_LIGHT_EN), fog by specular alpha
+  towards DP_FOG_CLR, blend factors with destination alpha and ALPHA_BLEND_SAT, Z, the GT-B's
+  dither/pack. TEX_PALETTE_INDEX then TEX_PALETTE stores in turn. Not emulated: VQ textures (the
+  codebook's layout is undocumented), edge anti-aliasing, the direct (trapezoid) path's W
+  registers. `vid_ati_mach64_ragepro.c`: block 1 registers (AGP_BASE/CNTL, scaler coefficients,
+  GUI_CNTL, BM_*, planar scaler offsets), GUI master per PRG 8.10 (BM_GUI_TABLE[_CMD] circular buffer,
+  kicked by DST_WIDTH/DST_HEIGHT_WIDTH with SRC_CNTL or DP_SET_GUI_ENGINE 27:24 BM enable + op 3;
+  BM_ADDR packets, BM_HOSTDATA, run at once on the CPU thread, BUSMASTER_EOL_INT), system bus
+  master on BM_SYSTEM_TABLE writes (trigger bit 0 taken as frame to system). Command FIFO 192/128/64
+  by GUI_CNTL (`mach64_fifo_depth()`; ATI's HAL waits for 128 free in GUI_STAT), FIFO_STAT in
+  sixteenths. DP_SET_GUI_ENGINE pitch 0 = USR_DST_PITCH (2F0h) on the Rage Pro. Verified in Win98 SE
+  (copy of the "Windows 98 SE 2" disk on the AX59Pro, both cards): inbox "ATI 3D Rage Pro (atir3)"
+  4.10.1720, desktop, DxDiag D3D7 cube (textured, bilinear, lit), ATI3DCIF.DLL from the retail
+  driver (`rage2c9x.zip`) with SDK samples RPROEX1 (compositing) and specular; the AGP card got
+  AGP_BASE and 2x. NT4 (copy of the "Windows NT4 - NV3" disk on the P6BAP): ATI's NT miniport from
+  `ati-rageiic.zip` (WINNT, ATI.INF via Display Type > Have Disk) runs the PCI card at 1024x768 in 24 and
+  16 bpp, and its OpenGL MCD (ATIMCDR3) draws 3D Pipes through the setup engine with Z at 16 bpp (at
+  24 bpp OpenGL is software). On the AGP card NT4's miniport does not start, as with the Savage3D (NT4's
+  HAL and legacy ranges behind the AGP bridge): use the PCI card. NT4 needed the 2D engine's packed
+  24 bpp mono host expansion fixed for every Mach64 (`mach64_blit()`: with DST_24_ROT_EN a mono host
+  bit is a whole 3-byte pixel; the miniport hung waiting for idle). Windows 2000 SP4 (a copy of the
+  "Windows 2000" disk): inbox "ATI Technologies Inc. 3D RAGE PRO PCI" / "3D RAGE PRO AGP 2X" (atidrab.dll,
+  atimpab.sys 5.00.2180.0001, chip "GT-C2U2"), 1024x768x24; DxDiag's DirectDraw and Direct3D tests pass
+  on both cards: the PCI one on its P/I-P55TVP4, the AGP one on an AOpen AX6BC (440BX; the disk needed
+  8086:7111 added to CriticalDeviceDatabase for intelide first: PIIX3 to PIIX4 is otherwise a 0x7B; a VIA
+  board needs pciide). Not exercised by any guest: the GUI/system bus master and AGP textures (DxDiag
+  says "AGP Support: Not Available" there). debug_cmd "dev" dumps the bus master,
+  2D, timing and setup state; "dev tris N" logs the next N triangles, "dev wlog N" the next N GUI
+  register writes.
 - Dynamic recompiler: upstream removed the old recompiler ("R.I.P. Old recompiler", f50f8cdf7)
   and so has this repo; `DYNAREC=ON` builds the only one (upstream's `src/codegen`, formerly
   `codegen_new`). There is no `NEW_DYNAREC` option any more: old build trees configured with

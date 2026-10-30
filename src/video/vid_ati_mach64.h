@@ -72,6 +72,9 @@
 #define BIOS_RAGEPRO_49801_2000_PATH  "roms/video/mach64/ragepro_agp_113-49801-101_2000.bin"
 #define BIOS_RAGEPRO_49801_1998_PATH  "roms/video/mach64/ragepro_agp_113-49801-101_1998.bin"
 #define BIOS_RAGEPRO_40212_PATH       "roms/video/mach64/ragepro_agp_113-40212-103.bin"
+/* 86Box-Next: 3D Rage Pro PCI (PQFP, PCI ID GP, 4750h), SGRAM: ATI 113-41901-104,
+   BK3.9.0/3.077, 1997/10/20 ("MACH64GPPCIMTSGU"), read out as 32K. */
+#define BIOS_RAGEPRO_PCI_41901_PATH   "roms/video/mach64/ragepro_pci_113-41901-104.bin"
 
 #define FIFO_SIZE         65536
 #define FIFO_MASK         (FIFO_SIZE - 1)
@@ -116,7 +119,8 @@ enum {
 #define MACH64_FLAG_ONBOARD (1 << 19)
 #define MACH64_FLAG_DRAM    (1 << 17) /* the board's memory is DRAM (256Kx16), not VRAM */
 #define MACH64_FLAG_RAGE2C  (1 << 20) /* 86Box-Next: 3D Rage IIC, the GT-B under PCI ID GV (4756h) */
-#define MACH64_FLAG_RAGEPRO (1 << 21) /* 86Box-Next: 3D Rage Pro (AGP), the GT-B core under PCI ID GB (4742h) */
+#define MACH64_FLAG_RAGEPRO (1 << 21) /* 86Box-Next: 3D Rage Pro, the GT-B core plus its own setup engine, bus master and AGP */
+#define MACH64_FLAG_PQFP    (1 << 22) /* 86Box-Next: the Rage Pro's PCI PQFP package, PCI ID GP (4750h) */
 #define MACH64_PCI_IOCONFIG 0x40        // "User Defined Configuration"
 
 typedef struct mach64_3d_t     mach64_3d_t;
@@ -148,7 +152,8 @@ typedef struct mach64_t {
     int     isa_irq_raised;
 
     uint8_t on_board;
-    uint8_t ragepro; /* 86Box-Next: 3D Rage Pro identity and AGP interface */
+    uint8_t ragepro; /* 86Box-Next: 3D Rage Pro identity, setup engine and bus master */
+    uint8_t agp;     /* 86Box-Next: on the AGP: its capability and timings */
 
     uint8_t pci_regs[256];
     uint8_t int_line;
@@ -194,6 +199,7 @@ typedef struct mach64_t {
     uint32_t dp_pix_width;
     uint32_t dp_src;
     uint32_t dp_set_gui_engine;
+    uint32_t usr_dst_pitch; /* 86Box-Next: USR_DST_PITCH (Rage Pro), DP_SET_GUI_ENGINE's pitch 0 */
 
     uint32_t dst_bres_lnth;
     uint32_t dst_bres_dec;
@@ -404,6 +410,33 @@ typedef struct mach64_t {
     uint8_t          gtb_regs[256]; /* control registers kept as written */
     uint8_t          genena;        /* 46E8h */
     uint8_t          genvs;         /* 102h */
+
+    /* 86Box-Next: the 3D Rage Pro's bus master and its own block 1
+       registers (vid_ati_mach64_ragepro.c). */
+    struct {
+        uint32_t blk1[256];     /* block 1 as it reads back, for the Rage Pro's registers */
+        uint32_t src_cntl;      /* SRC_CNTL as written, ahead of the FIFO */
+        uint32_t dp_set_gui_engine; /* DP_SET_GUI_ENGINE as written, for its bus master bits */
+        uint32_t gui_table;     /* BM_GUI_TABLE: the next descriptor, and the circular buffer size (1:0) */
+        uint32_t system_table;  /* BM_SYSTEM_TABLE as written */
+        uint32_t frame_buf_offset; /* the descriptor being run: BM_FRAME_BUF_OFFSET */
+        uint32_t system_mem_addr;  /* BM_SYSTEM_MEM_ADDR */
+        uint32_t command;          /* BM_COMMAND */
+        uint32_t status;           /* BM_STATUS */
+        uint32_t agp_base;
+        uint32_t agp_cntl;
+        uint32_t gui_cntl;
+        int      pkt_count;     /* GUI master register packet: the writes left */
+        uint32_t pkt_reg;       /*   and the next register, as a MM offset index */
+        int      running;       /* a bus master transfer is being run */
+        uint64_t descriptors;   /* run since reset, for the debug dump */
+        uint64_t triangles;     /* setup engine triangles drawn */
+        uint64_t pixels;        /* and their pixels */
+        int      trace;         /* debug_cmd "dev tris N": log the next N triangles */
+        int      wlog;          /* debug_cmd "dev wlog N": log the next N GUI register writes */
+        uint32_t last_dst;      /* the last triangle's destination base and pitch, bytes */
+        uint32_t last_pitch;
+    } rp;
 } mach64_t;
 
 extern video_timings_t timing_mach64_isa;
@@ -505,6 +538,24 @@ void     mach64_wake_fifo_thread(mach64_t *mach64);
 void     mach64_wait_fifo_idle(mach64_t *mach64);
 void     mach64_reset_engine(mach64_t *mach64);
 
+/* 86Box-Next: the 3D Rage Pro (vid_ati_mach64_ragepro.c). Block 1 offsets
+   are within the 1K block, 0-3FCh; the writes return 0 for a register that
+   is not the Rage Pro's own. */
+void     mach64_ragepro_reset(mach64_t *mach64);
+int      mach64_ragepro_blk1_write(mach64_t *mach64, uint32_t addr, uint32_t val, int bytes);
+int      mach64_ragepro_blk1_read(mach64_t *mach64, uint32_t addr, uint32_t *val);
+int      mach64_ragepro_gui_write(mach64_t *mach64, uint32_t addr, uint32_t val, uint32_t type);
+void     mach64_ragepro_bm_eol(mach64_t *mach64);   /* in vid_ati_mach64.c: BUSMASTER_EOL_INT */
+void     mach64_ragepro_dump(mach64_t *mach64);
+void     mach64_ragepro_debug_attach(mach64_t *mach64, int attach);
+void     mach64_timing_dump(mach64_t *mach64);
+
+/* The setup engine, in vid_ati_mach64_3d.c. reg is the dword index of the
+   block 1 register, 90h-CFh (VERTEX_1_S at 90h, as 190h in ATI's MM index). */
+int      mach64_3d_setup_write(mach64_t *mach64, int reg, uint32_t val);
+int      mach64_3d_setup_read(mach64_t *mach64, int reg, uint32_t *val);
+void     mach64_3d_ragepro_dump(mach64_t *mach64);
+
 uint8_t  mach64_readb_be(uint32_t addr, void *priv);
 void     mach64_writeb_be(uint32_t addr, uint8_t val, void *priv);
 
@@ -542,6 +593,25 @@ extern mach64_t* reset_state[2];
 
 
 
+
+/* 86Box-Next: the command FIFO's entries. The GT-B has 48; the Rage Pro's
+   GUI_CNTL CMDFIFO_SIZE_MODE (1:0) makes it 192 (0, the default), 128 or 64
+   (the DRI driver's mach64_drv.h), and its Direct3D HAL waits for 128 free
+   in GUI_STAT. */
+static inline uint32_t
+mach64_fifo_depth(const mach64_t *mach64)
+{
+    if (!mach64->ragepro)
+        return 48;
+    switch (mach64->rp.gui_cntl & 3) {
+        case 1:
+            return 128;
+        case 2:
+            return 64;
+        default:
+            return 192;
+    }
+}
 
 /* MEM_BNDRY (MEM_CNTL 17:16): 0, 256K, 512K or 1M, enabled by
    MEM_BNDRY_EN (bit 18), on the GX and CT (RRG 3-67). The VT's MEM_CNTL

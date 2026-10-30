@@ -178,6 +178,7 @@ video_cards[] = {
     { .device = &pm_at3d_pci_device,                            .flags = VIDEO_FLAG_TYPE_NONE      },
     { .device = &mach64gtb_device,                              .flags = VIDEO_FLAG_TYPE_NONE      },
     { .device = &mach64gtc_device,                              .flags = VIDEO_FLAG_TYPE_NONE      }, /* 86Box-Next */
+    { .device = &mach64ragepro_pci_device,                      .flags = VIDEO_FLAG_TYPE_NONE      }, /* 86Box-Next */
     { .device = &mach32_pci_device,                             .flags = VIDEO_FLAG_TYPE_8514      },
     { .device = &mach64gx_pci_device,                           .flags = VIDEO_FLAG_TYPE_NONE      },
     { .device = &mach64ct_device,                               .flags = VIDEO_FLAG_TYPE_NONE      },

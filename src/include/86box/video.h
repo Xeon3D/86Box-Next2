@@ -394,6 +394,7 @@ extern const device_t mach64gtb_device;
 extern const device_t mach64gtb_onboard_device;
 extern const device_t mach64gtc_device; /* 86Box-Next */
 extern const device_t mach64ragepro_device;         /* 86Box-Next */
+extern const device_t mach64ragepro_pci_device;     /* 86Box-Next */
 extern const device_t mach64ragepro_onboard_device; /* 86Box-Next */
 extern const device_t mach64vt3_onboard_device;
 extern const device_t ati_rage128_pro_device;

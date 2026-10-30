@@ -638,8 +638,13 @@ A fork of [86Box/86Box](https://github.com/86Box/86Box) with extra features.
   atimpab.sys 5.00.2180.0001, chip "GT-C2U2"), 1024x768x24; DxDiag's DirectDraw and Direct3D tests pass
   on both cards: the PCI one on its P/I-P55TVP4, the AGP one on an AOpen AX6BC (440BX; the disk needed
   8086:7111 added to CriticalDeviceDatabase for intelide first: PIIX3 to PIIX4 is otherwise a 0x7B; a VIA
-  board needs pciide). Not exercised by any guest: the GUI/system bus master and AGP textures (DxDiag
-  says "AGP Support: Not Available" there). debug_cmd "dev" dumps the bus master,
+  board needs pciide). AGP texturing works: Win98 SE's atir3 on the AGP card (AX59Pro, VIA MVP3) reports
+  "AGP Texture Acceleration: Enabled", sets AGP_BASE/AGP_CNTL and the DxDiag cube reads its textures
+  through the GART (TEX_CNTL TEX_SRC_AGP). Win2000's "AGP Support: Not Available" is the inbox
+  driver's: atimpab gets the AGP services (8 MB) and reports AGP, but atidrab.dll ORs 3 into the word
+  it keeps at PDEV+158h at init and declares the non-local heap in DrvGetDirectDrawInfo only when its
+  bit 0 is clear, so it never does (no GART is ever built). Not exercised by any guest: the
+  GUI/system bus master. debug_cmd "dev" dumps the bus master,
   2D, timing and setup state; "dev tris N" logs the next N triangles, "dev wlog N" the next N GUI
   register writes.
 - Dynamic recompiler: upstream removed the old recompiler ("R.I.P. Old recompiler", f50f8cdf7)
